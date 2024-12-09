@@ -2,8 +2,6 @@ clear variables
 close all
 clc
 
-%asd
-
 %Social Force model is an ODE model based on newtons second law (ma=mx''=F), but
 %with non-physical forces too. 
 %x=(x1,x2) are the coordinates of the person (we assume 2d space), thus for
@@ -31,7 +29,7 @@ init_vel=[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-
 %}
 
 %
-load('test_ppl_643128_socforcmodel.mat')
+load('test_ppl_409843_socforcmodel.mat')
 
 num_of_ppl=onerun.num_of_ppl;
 
@@ -134,7 +132,7 @@ tic
 y=exp_euler(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_v,f_norm,v_max,v_0,room);
 toc
 
-simple_plot(y,ppl_goal,num_of_ppl)
+simple_plot(y,ppl_goal,num_of_ppl,r_ij)
 
 %movie_plot(y,t,num_of_ppl)
 
@@ -212,12 +210,15 @@ function y_n=rk4_v(t,y,h)
     y_n=y+1/6*h*(k1+2*k2+2*k3+k4);
 end
 
-function simple_plot(y,ppl_goal,num_of_ppl)
+function simple_plot(y,ppl_goal,num_of_ppl,r_ij)
     figure;
     xlim([-10,10]);
     ylim([-10,10]);
     plot(y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5)
     hold on;
+    y_tmp=[reshape(y(1:50:end,1:2:size(y,2)/2),[],1),reshape(y(1:50:end,2:2:size(y,2)/2),[],1)];
+    viscircles(y_tmp,r_ij*ones(1,size(y_tmp,1)));
+
     plot(ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
 
 end
