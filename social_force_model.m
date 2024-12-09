@@ -216,8 +216,12 @@ function simple_plot(y,ppl_goal,num_of_ppl,r_ij)
     ylim([-10,10]);
     plot(y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5)
     hold on;
+    %plot circles
     y_tmp=[reshape(y(1:50:end,1:2:size(y,2)/2),[],1),reshape(y(1:50:end,2:2:size(y,2)/2),[],1)];
-    viscircles(y_tmp,r_ij*ones(1,size(y_tmp,1)));
+    viscircles(y_tmp,r_ij*ones(1,size(y_tmp,1)),'Color','m');
+    %plot velocity vectors
+    y_vel_tmp=[reshape(y(1:50:end,size(y,2)/2+1:2:size(y,2)),[],1),reshape(y(1:50:end,size(y,2)/2+2:2:size(y,2)),[],1)];
+    quiver(y_tmp(:,1),y_tmp(:,2),y_vel_tmp(:,1),y_vel_tmp(:,2),'Color','r','LineWidth',1.6)
 
     plot(ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
 
