@@ -2,6 +2,7 @@ clear variables
 close all
 clc
 
+%asd
 
 %Social Force model is an ODE model based on newtons second law (ma=mx''=F), but
 %with non-physical forces too. 
