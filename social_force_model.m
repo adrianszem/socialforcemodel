@@ -20,15 +20,15 @@ clc
 % array)
 % we will save this as cell array of structs
 
-%{
-num_of_ppl=15;
+%
+num_of_ppl=7;
 
 ppl_goal=randi([0,9],1,2*num_of_ppl);%[1,1,1,1];%[-1,1,1,1];%randi([0,10],1,2*num_of_ppl);
 init_pos=[2,2,randi([-9,9],1,2*(num_of_ppl-1))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
 init_vel=[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
 %}
 
-%
+%{
 load('test_ppl_409843_socforcmodel.mat')
 
 num_of_ppl=onerun.num_of_ppl;
@@ -82,9 +82,11 @@ V_tmp=sqrt(V(1:2:end).^2+V(2:2:end).^2);
 V_norm(1:2:2*num_of_ppl)=V_tmp;
 V_norm(2:2:2*num_of_ppl)=V_tmp;
 
-f=1/tau*((ppl_goal-X)./X_norm*v_0-V);
-f_g=f;
-f_k=f;%body force
+f_dir=1/tau*((ppl_goal-X)./X_norm*v_0-V);
+f_soc=f_dir-f_dir;
+f_g=f_dir-f_dir;
+f_k=f_dir-f_dir;%body force
+f_w=f_dir-f_dir;
 
 %f_2_ppl=A_i*exp((r_ij-)/B_i);
 tic
@@ -112,14 +114,17 @@ for p1=1:num_of_ppl
     lambda_part=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
     f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part;
     f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
-    f(2*p1+[-1,0])=f(2*p1+[-1,0])+f_wall_of_p1+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+    f_soc(2*p1+[-1,0])=f_soc(2*p1+[-1,0])+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+    f_w(2*p1+[-1,0])=f_wall_of_p1;
 end
 toc
 
 %convert symbolic function to function handle
 f_norm=matlabFunction(X_norm,"Vars",{X});% for the cutoff function
-f_v=matlabFunction(f,"Vars",{[X,V,B]});%{} instead of [] to have the inpts as arrays
+f_vect_soc=matlabFunction(f_soc,"Vars",{[X,V]});%{} instead of [] to have the inpts as arrays
 f_x=matlabFunction(V,"Vars", {V});% id fnc
+f_wall_vect=matlabFunction(f_w,"Vars",{[X,V,B]});
+f_vect_dir=matlabFunction(f_dir,"Vars",{[X,V]});
 
 %cutting it if velocity tto large:
 %ll=piecewise(V_norm(1)<v_max,V(1:2),V_norm(1)>=v_max,V(1:2)./V_norm(1,2)*v_max);
@@ -129,10 +134,10 @@ f_x=matlabFunction(V,"Vars", {V});% id fnc
 
 %plot_vector_field_one_person(-6,-6,6,6,0.5,F_goal)
 tic
-y=exp_euler(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_v,f_norm,v_max,v_0,room);
+[y,forces]=exp_euler(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
 toc
 
-simple_plot(y,ppl_goal,num_of_ppl,r_ij)
+simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij)
 
 %movie_plot(y,t,num_of_ppl)
 
@@ -152,9 +157,13 @@ disp(['initvals were saved as ', file_name])
 
 %numerical methods:
 %we will need to define 'f'
-function y=exp_euler(N,h,init,f_x,f_v,f_norm,v_max,v_0,room)
+function [y,forces_k]=exp_euler(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
+    %save forces
+    %forces=zeros(N,length(init)/2,3);
+    forces_k=zeros(N,length(init)/2,3);
+
     y(1,:)=init;
 
     for j=1:N-1
@@ -166,7 +175,12 @@ function y=exp_euler(N,h,init,f_x,f_v,f_norm,v_max,v_0,room)
         [min_vals,min_lincoords]=min(squeeze(vecnorm(vv,2,2)));
         min_wall_coords=room.wall_coords([min_lincoords,1],:)';
 
-        y(j+1,:)=y(j,:)+h*[cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),f_v([y(j,:),min_wall_coords(:)'])];
+        %y(j+1,:)=y(j,:)+h*[cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),f_v_dir(y(j,:))+f_v_soc(y(j,:))+f_v_wall([y(j,:),min_wall_coords(:)'])];
+        %forces(j,:,:)=[f_v_dir(y(j,:));f_v_soc(y(j,:));f_v_wall([y(j,:),min_wall_coords(:)'])];
+        forces_k(j,:,1)=h*f_v_dir(y(j,:));
+        forces_k(j,:,2)=h*f_v_soc(y(j,:));
+        forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords(:)']);
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
         %f_x(y(j,2*num_of_ppl+1:end))
     end
 end
@@ -210,7 +224,7 @@ function y_n=rk4_v(t,y,h)
     y_n=y+1/6*h*(k1+2*k2+2*k3+k4);
 end
 
-function simple_plot(y,ppl_goal,num_of_ppl,r_ij)
+function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij)
     figure;
     xlim([-10,10]);
     ylim([-10,10]);
@@ -222,6 +236,12 @@ function simple_plot(y,ppl_goal,num_of_ppl,r_ij)
     %plot velocity vectors
     y_vel_tmp=[reshape(y(1:50:end,size(y,2)/2+1:2:size(y,2)),[],1),reshape(y(1:50:end,size(y,2)/2+2:2:size(y,2)),[],1)];
     quiver(y_tmp(:,1),y_tmp(:,2),y_vel_tmp(:,1),y_vel_tmp(:,2),'Color','r','LineWidth',1.6)
+
+    %plot forces
+    dir_force_tmp=[reshape(forces(1:50:end,1:2:size(y,2)/2,1),[],1),reshape(forces(1:50:end,2:2:size(y,2)/2,1),[],1)];
+    quiver(y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1)+2*1/100*y_vel_tmp(:,1),dir_force_tmp(:,2)+2*1/100*y_vel_tmp(:,2),'Color','k','LineWidth',1.6)
+    quiver(y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1),dir_force_tmp(:,2),'Color','g','LineWidth',1.6)
+    %plot goals
 
     plot(ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
 
