@@ -1,5 +1,5 @@
 clear variables
-close all
+%close all
 clc
 
 %Social Force model is an ODE model based on newtons second law (ma=mx''=F), but
@@ -21,28 +21,76 @@ clc
 % we will save this as cell array of structs
 
 %
-num_of_ppl=7;
+num_of_ppl=15;
 
-ppl_goal=randi([0,9],1,2*num_of_ppl);%[1,1,1,1];%[-1,1,1,1];%randi([0,10],1,2*num_of_ppl);
-init_pos=[2,2,randi([-9,9],1,2*(num_of_ppl-1))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
-init_vel=[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
+init_pos=[1,0,1,0,randi([-9,9],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
+
+%check whether two person have the same init_pos
+%circshift can't be vectorized....:(
+for ind1=1:2:2*num_of_ppl 
+    ppl_tmp=init_pos(ind1+[0,1]);
+    for ind2=ind1+2:2*(num_of_ppl-1)
+        if sum(ppl_tmp==init_pos(ind2+[0,1]))==2
+           init_pos(ind1+[0,1])=randi([-9,9],1,2);
+        end
+    end
+
+end
+
+
+ppl_goal=[4,2,randi([0,9],1,2*(num_of_ppl-1))];%[1,1,1,1];%[-1,1,1,1];%randi([0,10],1,2*num_of_ppl);
+init_vel=[0,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
+save_tf=1;
 %}
 
 %{
-load('test_ppl_409843_socforcmodel.mat')
+load('test_ppl_950223_socforcmodel.mat')
 
 num_of_ppl=onerun.num_of_ppl;
 
-ppl_goal=onerun.ppl_goal;
 init_pos=onerun.init_pos;
+%init_pos= [    2     2    -1   -9    -6     3     8    -2    9     0     8     1    -8     9];
+%ppl_goal=[4,2,randi([0,9],1,2*(num_of_ppl-1))];%[1,1,1,1];%[-1,1,1,1];%randi([0,10],1,2*num_of_ppl);
+%ppl_goal=[     4     2     0     5     0     1     6     8     9     5     9     6     5     3];
+%init_vel=[0,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
 init_vel=onerun.init_vel;
+ppl_goal=onerun.ppl_goal;
+
+save_tf=0;
 %}
 
-ppl=struct('index',num2cell(1:num_of_ppl),'extra_attr',[],'a_coords',[],'v_coords',[],'x_coords',[]);   %empty cell of structs 
-load('room_for_soc_forc_mod.mat')%room, see make_discrete_room.m
+for ind1=1:2:2*num_of_ppl 
+    ppl_tmp=init_pos(ind1+[0,1]);
+    for ind2=ind1+2:2*(num_of_ppl-1)
+        if sum(ppl_tmp==init_pos(ind2+[0,1]))==2
+           init_pos(ind1+[0,1])=randi([-9,9],1,2);
+        end
+    end
+
+end
+
+disc_wall=0;
+%ppl=struct('index',num2cell(1:num_of_ppl),'extra_attr',[],'a_coords',[],'v_coords',[],'x_coords',[]);   %empty cell of structs 
+if disc_wall==1
+    load('room_for_soc_forc_mod.mat')%room, see make_discrete_room.m
+else
+    room.walls=[-10,10,10,10;...
+    10,10,10,-10;...
+    10,-10,-10,-10;...
+    -10,-10,-10,10];
+    room.walls_init=room.walls(:,1:2);
+    
+    %u_s,n_s fix
+    room.u_s=room.walls(:,3:4)-room.walls(:,1:2);
+    room.n_s=zeros(size(room.u_s));
+    room.n_s(:,1:2:end)=-room.u_s(:,2:2:end);
+    room.n_s(:,2:2:end)=room.u_s(:,1:2:end);
+end
+
+
 t_0=0;
 t_max=10;
-step_size=1/100;
+step_size=1/200;
 t=t_0:step_size:t_max;
 num_of_time_grid=length(t);
 
@@ -134,30 +182,35 @@ f_vect_dir=matlabFunction(f_dir,"Vars",{[X,V]});
 
 %plot_vector_field_one_person(-6,-6,6,6,0.5,F_goal)
 tic
-[y,forces]=exp_euler(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
+if disc_wall==1
+    [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
+else
+    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
+end
 toc
 
-simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij)
+simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room)
 
 %movie_plot(y,t,num_of_ppl)
 
 create_plots(t,y,num_of_ppl)
 
-onerun.ppl_goal=ppl_goal;
-onerun.init_pos=init_pos;
-onerun.init_vel=init_vel;
-onerun.num_of_ppl=num_of_ppl;
-rand_num=randi(1000000);
-file_name='test_ppl_'+string(rand_num)+'_socforcmodel.mat';
-save(file_name,'onerun')
-
-disp(['initvals were saved as ', file_name])
-
+if save_tf==1
+    onerun.ppl_goal=ppl_goal;
+    onerun.init_pos=init_pos;
+    onerun.init_vel=init_vel;
+    onerun.num_of_ppl=num_of_ppl;
+    rand_num=randi(1000000);
+    file_name='test_ppl_'+string(rand_num)+'_socforcmodel.mat';
+    save(file_name,'onerun')
+    
+    disp(['initvals were saved as ', file_name])
+end
 
 
 %numerical methods:
 %we will need to define 'f'
-function [y,forces_k]=exp_euler(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
+function [y,forces_k]=exp_euler_discrete_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
     %save forces
@@ -184,6 +237,46 @@ function [y,forces_k]=exp_euler(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_m
         %f_x(y(j,2*num_of_ppl+1:end))
     end
 end
+
+function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
+    num_of_ppl=length(init)/4;
+    y=zeros(N,length(init));
+    %save forces
+    %forces=zeros(N,length(init)/2,3);
+    forces_k=zeros(N,length(init)/2,3);
+
+    y(1,:)=init;
+
+    for j=1:N-1
+        %y(:,j+1)=y(:,j)+h*f_v(t,y(:,j));
+        
+        %find closest room coordinates
+        
+        t=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl)).*repmat(room.n_s,1,num_of_ppl);%QP.*n_s
+        tt=(t(:,1:2:end)+t(:,2:2:end))./(vecnorm(room.n_s,2,2).^2);
+        [min_dist,min_ind]=min(abs(tt));
+        linindices=sub2ind([size(room.walls,1),num_of_ppl],min_ind,[1:num_of_ppl]);
+        n_u=tt(linindices).*room.n_s([min_ind],:)';%later the force should be changed that the inputs are the min(tt)*n_s vectors only....
+                                              %or maybe write the line
+                                              %point equation differently
+        min_wall_coords=y(j,1:2*num_of_ppl)-n_u(:)';
+
+
+
+        %vv=reshape(repmat(y(j,1:2*num_of_ppl),size(room.wall_coords,1),1)-repmat(room.wall_coords,1,num_of_ppl),size(room.wall_coords,1),2,[]);
+        %[min_vals,min_lincoords]=min(squeeze(vecnorm(vv,2,2)));
+        %min_wall_coords=room.wall_coords([min_lincoords,1],:)';
+
+        %y(j+1,:)=y(j,:)+h*[cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),f_v_dir(y(j,:))+f_v_soc(y(j,:))+f_v_wall([y(j,:),min_wall_coords(:)'])];
+        %forces(j,:,:)=[f_v_dir(y(j,:));f_v_soc(y(j,:));f_v_wall([y(j,:),min_wall_coords(:)'])];
+        forces_k(j,:,1)=h*f_v_dir(y(j,:));
+        forces_k(j,:,2)=h*f_v_soc(y(j,:));
+        forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords]);
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
+        %f_x(y(j,2*num_of_ppl+1:end))
+    end
+end
+
 
 function vect=cutoff_fnc(vect,f_norm,v_max,v_0)%cannot be implemented by symbolic fnc...
     indxs_tmp=f_norm(vect)>=v_max;
@@ -224,27 +317,50 @@ function y_n=rk4_v(t,y,h)
     y_n=y+1/6*h*(k1+2*k2+2*k3+k4);
 end
 
-function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij)
+function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room)
     figure;
     xlim([-10,10]);
     ylim([-10,10]);
     plot(y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5)
     hold on;
+    xline(10)
+    xline(-10)
+    yline(10)
+    yline(-10)
+    xlim([-10.5,10.5])
+    ylim([-10.5,10.5])
+
     %plot circles
-    y_tmp=[reshape(y(1:50:end,1:2:size(y,2)/2),[],1),reshape(y(1:50:end,2:2:size(y,2)/2),[],1)];
-    viscircles(y_tmp,r_ij*ones(1,size(y_tmp,1)),'Color','m');
-    %plot velocity vectors
+    plot_step=5;
+    y_tmp=[reshape(y(1:plot_step:end,1:2:size(y,2)/2),[],1),reshape(y(1:plot_step:end,2:2:size(y,2)/2),[],1)];
+    viscircles(y_tmp,r_ij/2*ones(1,size(y_tmp,1)),'Color','m');
+    %plot acceleration vectors
+    %{
     y_vel_tmp=[reshape(y(1:50:end,size(y,2)/2+1:2:size(y,2)),[],1),reshape(y(1:50:end,size(y,2)/2+2:2:size(y,2)),[],1)];
     quiver(y_tmp(:,1),y_tmp(:,2),y_vel_tmp(:,1),y_vel_tmp(:,2),'Color','r','LineWidth',1.6)
+    %}
 
-    %plot forces
+    %plot force vectors
+    %f_dir, goal
+    %{
     dir_force_tmp=[reshape(forces(1:50:end,1:2:size(y,2)/2,1),[],1),reshape(forces(1:50:end,2:2:size(y,2)/2,1),[],1)];
     quiver(y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1)+2*1/100*y_vel_tmp(:,1),dir_force_tmp(:,2)+2*1/100*y_vel_tmp(:,2),'Color','k','LineWidth',1.6)
     quiver(y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1),dir_force_tmp(:,2),'Color','g','LineWidth',1.6)
+    %}
+    %f_wall
+    wall_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,3),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,3),[],1)];
+    quiver(y_tmp(:,1),y_tmp(:,2),wall_force_tmp(:,1),wall_force_tmp(:,2),'Color','g','LineWidth',1.6)
+    %f_soc
+    soc_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,2),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,2),[],1)];
+    quiver(y_tmp(:,1),y_tmp(:,2),soc_force_tmp(:,1),soc_force_tmp(:,2),'Color','r','LineWidth',1.6)
+
     %plot goals
 
     plot(ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
-
+    
+    %plot room
+    %plot(room.wall_X,room.wall_Y,'*')
+    colorbar;
 end
 
 function movie_plot(y,t,num_of_ppl)

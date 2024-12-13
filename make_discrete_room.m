@@ -22,7 +22,7 @@ room.wall_X=X(wall_indexes);
 room.wall_Y=Y(wall_indexes);
 room.wall_coords=[X(wall_indexes),Y(wall_indexes)];
 room.resolution=h;%redundant 
-save('room_for_soc_forc_mod.mat',"room");
+%save('room_for_soc_forc_mod.mat',"room");
 %we will need this later
 %closest wall point from coord
 coord=[1,1];
