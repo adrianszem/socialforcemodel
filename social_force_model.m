@@ -22,6 +22,8 @@ clc
 
 %
 num_of_ppl=15;
+disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
+
 
 init_pos=[1,0,1,0,randi([-9,9],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
 
@@ -44,7 +46,7 @@ save_tf=1;
 %}
 
 %{
-load('test_ppl_950223_socforcmodel.mat')
+load('test_ppl_170278_socforcmodel.mat')
 
 num_of_ppl=onerun.num_of_ppl;
 
@@ -69,15 +71,14 @@ for ind1=1:2:2*num_of_ppl
 
 end
 
-disc_wall=0;
 %ppl=struct('index',num2cell(1:num_of_ppl),'extra_attr',[],'a_coords',[],'v_coords',[],'x_coords',[]);   %empty cell of structs 
 if disc_wall==1
     load('room_for_soc_forc_mod.mat')%room, see make_discrete_room.m
 else
-    room.walls=[-10,10,10,10;...
+    room.walls=[-10,10,10,10;...%x_startp,y_startp,x_endp,y_endp
     10,10,10,-10;...
-    10,-10,-10,-10;...
-    -10,-10,-10,10];
+    -10,-10,-10,10;...
+    10,-10,-10,-10];
     room.walls_init=room.walls(:,1:2);
     
     %u_s,n_s fix
@@ -189,11 +190,11 @@ else
 end
 toc
 
-simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room)
+simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall)
 
 %movie_plot(y,t,num_of_ppl)
 
-create_plots(t,y,num_of_ppl)
+%create_plots(t,y,num_of_ppl)
 
 if save_tf==1
     onerun.ppl_goal=ppl_goal;
@@ -317,21 +318,36 @@ function y_n=rk4_v(t,y,h)
     y_n=y+1/6*h*(k1+2*k2+2*k3+k4);
 end
 
-function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room)
+function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall)
     figure;
     xlim([-10,10]);
     ylim([-10,10]);
     plot(y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5)
     hold on;
+    %{
     xline(10)
     xline(-10)
     yline(10)
     yline(-10)
+    %}
     xlim([-10.5,10.5])
     ylim([-10.5,10.5])
 
+    %plot walls - if we would do w/out the for cycle i.e. with vectors,
+    %there would between the ending a starting points (not just the
+    %starting and ending points)
+    if disc_wall==0
+        for ind_plot=1:1:size(room.walls,1)
+            line([room.walls(ind_plot,1),room.walls(ind_plot,3)],[room.walls(ind_plot,2),room.walls(ind_plot,4)])
+        end
+    else 
+        xline(10)
+        xline(-10)
+        yline(10)
+        yline(-10)
+    end
     %plot circles
-    plot_step=5;
+    plot_step=50;
     y_tmp=[reshape(y(1:plot_step:end,1:2:size(y,2)/2),[],1),reshape(y(1:plot_step:end,2:2:size(y,2)/2),[],1)];
     viscircles(y_tmp,r_ij/2*ones(1,size(y_tmp,1)),'Color','m');
     %plot acceleration vectors
