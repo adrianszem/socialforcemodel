@@ -145,7 +145,7 @@ function mouseCallback(src, evnt,person_button,wall_button,rect_button,marker_hi
             data.other_graph_objects(end+1)=appviscircles(src,new_ppl_coords',0.25*ones(1,str2num(nmbr_of_rand_ppl.Value)),'Color',"red");
             data.other_graph_objects(end+1)=plot(src,new_pplc_coords2(1:2:end),new_pplc_coords2(2:2:end),'*k','HitTest','off');%ppl_coords
             data.person_coords=[data.person_coords,new_pplc_coords2];
-            data.vel_coords=[data.vel_coords,rand(1,str2num(nmbr_of_rand_ppl.Value))-1/2];
+            data.vel_coords=[data.vel_coords,rand(1,2*str2num(nmbr_of_rand_ppl.Value))-1/2];
             data.rect=2;
             guidata(src,data);
         else %if data.rect==2 %goals (they only can have the same goals)
