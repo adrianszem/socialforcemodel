@@ -4,8 +4,8 @@ clc
 
 fig=uifigure("Name", "Make Room");
 
-g1=uigridlayout(fig,[4,3]);
-g1.RowHeight={'1x',35,35,35};
+g1=uigridlayout(fig,[5,3]);
+g1.RowHeight={'1x',35,35,35,35};
 g1.ColumnWidth={'1x','1x','fit'};
 
 uiax = uiaxes(g1,"HitTest","off");
@@ -25,6 +25,11 @@ editfld4=uieditfield(g1);
 btn_del_all=uibutton(g1,"Text",["Delete all"]);
 
 btn5=uibutton(g1,"state","Text",["Marker hit helper"],"Tooltip","Only works for wall end points and goal points. If turned on the click doesnt get registered until one clicks on a marker");
+
+btn_load=uibutton(g1,"Text",["Load as: _AddText_.mat",".mat"],"Tooltip"," ");
+editfld_load=uieditfield(g1);
+
+
 
 uiax.Layout.Row=1;
 uiax.Layout.Column=[1,3];
@@ -53,6 +58,12 @@ btn_del_all.Layout.Column=1;
 btn5.Layout.Row=3;
 btn5.Layout.Column=1;
 
+btn_load.Layout.Row=5;
+btn_load.Layout.Column=2;
+
+editfld_load.Layout.Row=5;
+editfld_load.Layout.Column=3;
+
 
 xlim(uiax,[-10,10])
 ylim(uiax,[-10,10])
@@ -68,6 +79,7 @@ uiax.ButtonDownFcn={@mouseCallback,btn2,btn3,btn4,btn5,editfld4};
 btn.ButtonPushedFcn={@saveData,editfld,fig};
 btn_del_all.ButtonPushedFcn={@del_all,fig};
 
+btn_load.ButtonPushedFcn={@loadData,editfld_load,fig,uiax};
 
 function mouseCallback(src, evnt,person_button,wall_button,rect_button,marker_hit_helper_button,nmbr_of_rand_ppl)
     xyz = get(src, 'CurrentPoint');
@@ -242,11 +254,74 @@ function GenerateWalls_OnOff(src,event,uiax,otherstatebutton1,otherstatebutton2,
     end
 end
 
+function loadData(src,event,editfld,fig,uiax)
+    if isempty(editfld.Value)
+        uialert(fig,"The data can not be loaded. Please Add a File Name!","No filename Added")
+        return;
+    else
+        %check if the data under the given name exists
+        if isfile(strcat(editfld.Value,'.mat'))==0
+            uialert(fig,"There is no existing file with the given name!","Not a filename")
+            return;
+        end
+        load(strcat(editfld.Value,'.mat')); %loads room_config_datas struct
+        %room_config_datas=data_to_save;
+        %check if the loaded data has the needed fields
+        if sum(isfield(room_config_datas,{'person_coords','vel_coords','goal_coords','wall_coords'}))~=4
+            uialert(fig,"The given file does not have a needed structure","Something wrong")
+            return;
+        end
+        % we delete the existing data
+        del_all(src,event,fig);
+        data=guidata(src); %we want to update everything tho, so no real
+        %need for this, nevermind, we need it because the loaded data is
+        %missing multiple fields
+
+        %add wall elements - later we want to have the "lines" of a wall
+        %independently as graphical objects, so I use for cycles
+        data.wall_coords=room_config_datas.wall_coords; %no need update this also line byy line in a for cycle
+        data.person_coords=room_config_datas.person_coords;
+        data.vel_coords=room_config_datas.vel_coords;
+        data.goal_coords=room_config_datas.goal_coords;
+
+        for ind_wall=1:size(data.wall_coords,1)
+            %it would be nicer to put this to an addWall function and
+            %possibly use this function when we make the wall by clicking,
+            %but the problems are (i) we want to show the start point marker
+            %before choosing the end point and (ii) i cannot get the
+            %handler once outside the function and once inside and update
+            %it first inside and then outside 
+             data.other_graph_objects(end+1)=plot(uiax,data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,2),'ok',"MarkerSize",10,'MarkerFaceColor','k','ButtonDownFcn',@MouseClickWall);
+             data.other_graph_objects(end+1)=plot(uiax,data.wall_coords(ind_wall,3),data.wall_coords(ind_wall,4),'ok',"MarkerSize",10,'MarkerFaceColor','k','ButtonDownFcn',@MouseClickWall);
+             data.other_graph_objects(end+1)=line(uiax,[data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,3)],[data.wall_coords(ind_wall,2),data.wall_coords(ind_wall,4)],'Color','black','LineWidth',2,'HitTest','off');
+             %guidata(src,data);
+        end
+
+        %add people one-by-one so they are independent graphical objects
+        for ind_ppl=1:2:size(data.person_coords,2)
+            person_indices=ind_ppl+[0,1];
+            data.other_graph_objects(end+1)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
+            data.other_graph_objects(end+1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','HitTest','off');
+            data.other_graph_objects(end+1)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
+            %later, i will probably shouldn't make a new marker for a goal, if that
+            %goal already exists
+            data.other_graph_objects(end+1)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'ButtonDownFcn',{@MouseClickGoal});
+            data.other_graph_objects(end+1)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
+        end
+        guidata(src,data);
+
+    end
+
+
+
+end
+
+
 function saveData(src,event,editfld,fig)
     data=guidata(src);
     %floor_field=mtx;
     if isempty(editfld.Value)
-        uialert(fig,"The matrix can not be saved. Please Add a File Name!","No filename Added")
+        uialert(fig,"The data can not be saved. Please Add a File Name!","No filename Added")
     else
         if isempty(data.goal_coords)==1 %no walls is ok rn
             uialert(fig,"The data can not be saved, since it is empty","no values to save")
@@ -257,11 +332,10 @@ function saveData(src,event,editfld,fig)
             uialert(fig,"Choose the endpoint of the wall first","Eyy!")
             return;
         else 
-            data_to_save=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point'});
-            save(editfld.Value,'data_to_save'); %we save the people independently
+            room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','other_graph_objects'});
+            save(editfld.Value,'room_config_datas'); %we save the people independently
         end
     end
-
 end
 
 function del_all(src,event,fig)
