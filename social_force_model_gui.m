@@ -1,5 +1,5 @@
 
-function social_force_model_gui(room_config_datas)
+function sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical)
 %clear variables
 %close all
 %clc
@@ -57,11 +57,12 @@ room.u_s=room.walls(:,3:4)-room.walls(:,1:2);
 room.n_s=zeros(size(room.u_s));
 room.n_s(:,1:2:end)=-room.u_s(:,2:2:end);
 room.n_s(:,2:2:end)=room.u_s(:,1:2:end);
+room.lengths=vecnorm(room.u_s,2,2);
 
 
 
 t_0=0;
-t_max=400;
+t_max=10;
 step_size=1/200;
 t=t_0:step_size:t_max;
 num_of_time_grid=length(t);
@@ -89,6 +90,10 @@ r_ij=0.5;
 k=100;
 kappa=100;
 
+d1 = uiprogressdlg(fig,'Title','Making symbolic functions',...
+        'Indeterminate','on');
+drawnow;
+
 %A = sym("a",[1 2*num_of_ppl]);
 %or can be defined by syms a [1 10] if we dont want them in an array struct
 X = sym("x",[1 2*num_of_ppl]);
@@ -113,7 +118,7 @@ tic
 for p1=1:num_of_ppl
     %others=cat(2,1:p1-1,p1+1:num_of_ppl);
     x_p1=X(2*p1+[-1,0]);
-    b_p1=B(2*p1+[-1,0]);
+    b_p1=B(2*p1+[-1,0]);%wall coords
     v_p1=V(2*p1+[-1,0]);
     v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
     
@@ -146,6 +151,8 @@ f_x=matlabFunction(V,"Vars", {V});% id fnc
 f_wall_vect=matlabFunction(f_w,"Vars",{[X,V,B]});
 f_vect_dir=matlabFunction(f_dir,"Vars",{[X,V]});
 
+close(d1)
+
 %cutting it if velocity tto large:
 %ll=piecewise(V_norm(1)<v_max,V(1:2),V_norm(1)>=v_max,V(1:2)./V_norm(1,2)*v_max);
 %unfortunately matlabFunction cant do piecewise functions
@@ -154,13 +161,15 @@ f_vect_dir=matlabFunction(f_dir,"Vars",{[X,V]});
 
 %plot_vector_field_one_person(-6,-6,6,6,0.5,F_goal)
 
-[y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
+[y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room,fig);
 
-simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room)
+sim_graph_objects=simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical);
 
 %movie_plot(y,t,num_of_ppl)
 
 %create_plots(t,y,num_of_ppl)
+
+disp('simulation ended')
 
 %{
 if save_tf==1
@@ -179,7 +188,10 @@ end
 %numerical methods:
 %we will need to define 'f'
 
-function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
+function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room,fig)
+    d2 = uiprogressdlg(fig,'Title','Please Wait',...
+        'Message','Simulating');
+
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
     %save forces
@@ -189,20 +201,30 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
     y(1,:)=init;
 
     for j=1:N-1
-        %y(:,j+1)=y(:,j)+h*f_v(t,y(:,j));
         
-        %find closest room coordinates
+        ap_1=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl));
+        t=ap_1.*repmat(room.u_s,1,num_of_ppl);%QP.*n_s
+        tt=(t(:,1:2:end)+t(:,2:2:end))./(vecnorm(room.u_s,2,2).^2);%vetitett lekozelebbi vektor hossza, dim: # faldarabok x #személyek
         
-        t=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl)).*repmat(room.n_s,1,num_of_ppl);%QP.*n_s
-        tt=(t(:,1:2:end)+t(:,2:2:end))./(vecnorm(room.n_s,2,2).^2);
-        [min_dist,min_ind]=min(abs(tt));
-        linindices=sub2ind([size(room.walls,1),num_of_ppl],min_ind,[1:num_of_ppl]);
-        n_u=tt(linindices).*room.n_s([min_ind],:)';%later the force should be changed that the inputs are the min(tt)*n_s vectors only....
-                                              %or maybe write the line
-                                              %point equation differently
-        min_wall_coords=y(j,1:2*num_of_ppl)-n_u(:)';
+        tt(tt>1)=1;
+        tt(tt<0)=0;
+        tt_double=zeros(size(tt,1),2*size(tt,2));
+        tt_double(:,1:2:end)=tt;
+        tt_double(:,2:2:end)=tt;
+        
+        us=repmat(room.u_s,1,num_of_ppl).*tt_double+repmat(room.walls_init,1,num_of_ppl);
 
-
+        n_u=repmat(y(j,1:2*num_of_ppl),size(room.u_s,1),1)-(us);
+        length_n_u=sqrt(n_u(:,1:2:size(n_u,2)).^2+n_u(:,2:2:size(n_u,2)).^2);
+        %n_u-k hossza 
+        [~,min_ind]=min(length_n_u,[],1);
+        min_ind_double=zeros(1,2*size(min_ind,2));
+        min_ind_double(1:2:end)=min_ind;
+        min_ind_double(2:2:end)=min_ind;
+        linindices=sub2ind([size(room.walls,1),2*num_of_ppl],min_ind_double,1:2*num_of_ppl);        
+        
+        min_wall_coords=us(linindices);
+        %}
 
         %vv=reshape(repmat(y(j,1:2*num_of_ppl),size(room.wall_coords,1),1)-repmat(room.wall_coords,1,num_of_ppl),size(room.wall_coords,1),2,[]);
         %[min_vals,min_lincoords]=min(squeeze(vecnorm(vv,2,2)));
@@ -215,7 +237,13 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords]);
         y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
         %f_x(y(j,2*num_of_ppl+1:end))
+
+        if mod(j,200)==0
+            d2.Value = j/(N-1); 
+        end
+
     end
+    close(d2)
 end
 
 
@@ -258,49 +286,55 @@ function y_n=rk4_v(t,y,h)
     y_n=y+1/6*h*(k1+2*k2+2*k3+k4);
 end
 
-function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room)
-    figure;
-    %xlim([-10,10]);
-    %ylim([-10,10]);
-    plot(y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5)
-    grid minor;
-    hold on;
-    xlim([-10.5,10.5])
-    ylim([-10.5,10.5])
-    
-    %plot walls - maybe make it nicer later
-    for ind_plot=1:1:size(room.walls,1)
-        plot([room.walls(ind_plot,1),room.walls(ind_plot,3)],[room.walls(ind_plot,2),room.walls(ind_plot,4)],'-ok','LineWidth',2,'MarkerFaceColor','k','MarkerSize',10)
+function sim_graph_objects=simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical)
+    sim_graph_objects=[];
+    if newfigure_logical==1
+        figure;
+        grid minor;
+        hold on;
+        xlim([-10.5,10.5])
+        ylim([-10.5,10.5])
+        ax=gca;
+        %plot walls - maybe make it nicer later
+        for ind_plot=1:1:size(room.walls,1)
+            sim_graph_objects(end+1)=plot(ax,[room.walls(ind_plot,1),room.walls(ind_plot,3)],[room.walls(ind_plot,2),room.walls(ind_plot,4)],'-ok','LineWidth',2,'MarkerFaceColor','k','MarkerSize',10);
+        end
+    else
+        ax=uiax;
     end
+    
+    
+    a1= plot(ax,y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5);
 
+    sim_graph_objects(end+1:end+num_of_ppl)=a1;
+    
     %plot circles
     plot_step=20;
     y_tmp=[reshape(y(1:plot_step:end,1:2:size(y,2)/2),[],1),reshape(y(1:plot_step:end,2:2:size(y,2)/2),[],1)];
-    %viscircles(y_tmp,r_ij/2*ones(1,size(y_tmp,1)),'Color','m');
+    %sim_graph_objects(end+1)=viscircles(ax,y_tmp,r_ij/2*ones(1,size(y_tmp,1)),'Color','m');
     %plot acceleration vectors
     %{
     y_vel_tmp=[reshape(y(1:50:end,size(y,2)/2+1:2:size(y,2)),[],1),reshape(y(1:50:end,size(y,2)/2+2:2:size(y,2)),[],1)];
-    quiver(y_tmp(:,1),y_tmp(:,2),y_vel_tmp(:,1),y_vel_tmp(:,2),'Color','r','LineWidth',1.6)
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),y_vel_tmp(:,1),y_vel_tmp(:,2),'Color','r','LineWidth',1.6);
     %}
 
     %plot force vectors
     %f_dir, goal
     %{
-    dir_force_tmp=[reshape(forces(1:50:end,1:2:size(y,2)/2,1),[],1),reshape(forces(1:50:end,2:2:size(y,2)/2,1),[],1)];
-    quiver(y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1)+2*1/100*y_vel_tmp(:,1),dir_force_tmp(:,2)+2*1/100*y_vel_tmp(:,2),'Color','k','LineWidth',1.6)
-    quiver(y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1),dir_force_tmp(:,2),'Color','g','LineWidth',1.6)
+    sim_graph_objects(end+1)=dir_force_tmp=[reshape(forces(1:50:end,1:2:size(y,2)/2,1),[],1),reshape(forces(1:50:end,2:2:size(y,2)/2,1),[],1)];
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1)+2*1/100*y_vel_tmp(:,1),dir_force_tmp(:,2)+2*1/100*y_vel_tmp(:,2),'Color','k','LineWidth',1.6);
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),dir_force_tmp(:,1),dir_force_tmp(:,2),'Color','g','LineWidth',1.6);
     %}
     %f_wall
     wall_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,3),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,3),[],1)];
-    quiver(y_tmp(:,1),y_tmp(:,2),wall_force_tmp(:,1),wall_force_tmp(:,2),'Color','g','LineWidth',1.6)
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),wall_force_tmp(:,1),wall_force_tmp(:,2),'Color','g','LineWidth',1.6);
     %f_soc
     soc_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,2),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,2),[],1)];
-    quiver(y_tmp(:,1),y_tmp(:,2),soc_force_tmp(:,1),soc_force_tmp(:,2),'Color','r','LineWidth',1.6)
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),soc_force_tmp(:,1),soc_force_tmp(:,2),'Color','r','LineWidth',1.6);
 
-    %plot goals
-
-    plot(ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
-    colorbar;
+    %plot goals 
+    sim_graph_objects(end+1)=plot(ax,ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
+    %colorbar;
 end
 
 function movie_plot(y,t,num_of_ppl)

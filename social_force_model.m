@@ -21,7 +21,7 @@ clc
 % we will save this as cell array of structs
 
 %
-num_of_ppl=15;
+num_of_ppl=20;
 disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
 
 
@@ -46,8 +46,8 @@ save_tf=1;
 %}
 
 %{
-load('test_ppl_170278_socforcmodel.mat')
-
+load('test_ppl_924839_socforcmodel.mat')
+disc_wall=0;
 num_of_ppl=onerun.num_of_ppl;
 
 init_pos=onerun.init_pos;
@@ -80,9 +80,12 @@ else
     -10,-10,-10,10;...
     10,-10,-10,-10];
     room.walls_init=room.walls(:,1:2);
+    room.walls_end=room.walls(:,3:4);
     
     %u_s,n_s fix
     room.u_s=room.walls(:,3:4)-room.walls(:,1:2);
+    room.lengths=vecnorm(room.u_s,2,2);
+
     room.n_s=zeros(size(room.u_s));
     room.n_s(:,1:2:end)=-room.u_s(:,2:2:end);
     room.n_s(:,2:2:end)=room.u_s(:,1:2:end);
@@ -252,17 +255,62 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
         %y(:,j+1)=y(:,j)+h*f_v(t,y(:,j));
         
         %find closest room coordinates
-        
-        t=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl)).*repmat(room.n_s,1,num_of_ppl);%QP.*n_s
+        %{
+        %y(j,1:2*num_of_ppl)
+        qp_1=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl));
+        %qp_2=(-repmat(room.walls_end,1,num_of_ppl)+y(j,1:2*num_of_ppl));
+        %mins=min(sqrt(abs(qp_1(:,2:2:size(qp_1,2))).^2+abs(qp_1(:,1:2:size(qp_1,2))).^2),sqrt(abs(qp_2(:,2:2:size(qp_2,2))).^2+abs(qp_2(:,1:2:size(qp_2,2))).^2));
+        %norm_prod=sqrt(qp_1(:,2:2:size(qp_1,2)).^2+qp_1(:,1:2:size(qp_1,2)).^2).*sqrt(qp_2(:,2:2:size(qp_2,2)).^2+qp_2(:,1:2:size(qp_2,2)).^2);
+        %tmp_a=qp_1.*qp_2;
+        %angles=(tmp_a(:,1:2:2*num_of_ppl)+tmp_a(:,2:2:2*num_of_ppl))./norm_prod;
+        %angles>0
+        t=qp_1.*repmat(room.n_s,1,num_of_ppl);%QP.*n_s
         tt=(t(:,1:2:end)+t(:,2:2:end))./(vecnorm(room.n_s,2,2).^2);
-        [min_dist,min_ind]=min(abs(tt));
-        linindices=sub2ind([size(room.walls,1),num_of_ppl],min_ind,[1:num_of_ppl]);
+        [min_dist,min_ind]=min(abs(tt),[],1);
+        linindices=sub2ind([size(room.walls,1),num_of_ppl],min_ind,1:num_of_ppl);
+        
+
         n_u=tt(linindices).*room.n_s([min_ind],:)';%later the force should be changed that the inputs are the min(tt)*n_s vectors only....
                                               %or maybe write the line
                                               %point equation differently
+        n_u
         min_wall_coords=y(j,1:2*num_of_ppl)-n_u(:)';
+        min_wall_coords
+        %}
+
+        %
+        %új
+        ap_1=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl));
+        t=ap_1.*repmat(room.u_s,1,num_of_ppl);%QP.*n_s
+        tt=(t(:,1:2:end)+t(:,2:2:end))./(vecnorm(room.u_s,2,2).^2);%vetitett lekozelebbi vektor hossza, dim: # faldarabok x #személyek
+        %régi
+        %t2=(-repmat(room.walls_init,1,num_of_ppl)+y(j,1:2*num_of_ppl)).*repmat(room.n_s,1,num_of_ppl);%QP.*n_s
+        %tt2=(t2(:,1:2:end)+t2(:,2:2:end))./(vecnorm(room.n_s,2,2).^2);
+        
+        tt(tt>1)=1;
+        tt(tt<0)=0;
+        tt_double=zeros(size(tt,1),2*size(tt,2));
+        tt_double(:,1:2:end)=tt;
+        tt_double(:,2:2:end)=tt;
+        
+        us=repmat(room.u_s,1,num_of_ppl).*tt_double+repmat(room.walls_init,1,num_of_ppl);
+
+        n_u=repmat(y(j,1:2*num_of_ppl),size(room.u_s,1),1)-(us);
+        length_n_u=sqrt(n_u(:,1:2:size(n_u,2)).^2+n_u(:,2:2:size(n_u,2)).^2);
+        %n_u-k hossza 
+        [~,min_ind]=min(length_n_u,[],1);
+        min_ind_double=zeros(1,2*size(min_ind,2));
+        min_ind_double(1:2:end)=min_ind;
+        min_ind_double(2:2:end)=min_ind;
+        linindices=sub2ind([size(room.walls,1),2*num_of_ppl],min_ind_double,1:2*num_of_ppl);        %closest_vectors=n_u(linindices)+room.walls_init([min_ind],:)';
+        %closest_vectors
+        %min_wall_coords=closest_vectors(:)';
+        %n_u2=tt2(linindices).*room.n_s([min_ind],:)';
+        min_wall_coords=us(linindices);%y(j,1:2*num_of_ppl)-n_u2(:)';
 
 
+        
+        %}
 
         %vv=reshape(repmat(y(j,1:2*num_of_ppl),size(room.wall_coords,1),1)-repmat(room.wall_coords,1,num_of_ppl),size(room.wall_coords,1),2,[]);
         %[min_vals,min_lincoords]=min(squeeze(vecnorm(vv,2,2)));
@@ -376,7 +424,7 @@ function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall)
     
     %plot room
     %plot(room.wall_X,room.wall_Y,'*')
-    colorbar;
+    %colorbar;
 end
 
 function movie_plot(y,t,num_of_ppl)

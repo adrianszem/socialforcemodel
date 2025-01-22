@@ -6,6 +6,22 @@ fig=uifigure("Name", "Make Room");
 
 %global globvar;
 %globvar=[];
+m = uimenu(fig,'Text','&File');
+m_save = uimenu(m,'Text','&Save');
+m_load = uimenu(m,'Text','&Load');
+m_load.Accelerator = 'L';
+m_save.Accelerator = 'S';
+
+m = uimenu(fig,'Text','&Edit');
+m_run = uimenu(m,'Text','&Run');
+m_delete_config = uimenu(m,'Text','&Delete config');
+m_delete_sim = uimenu(m,'Text','&Delete simulation');
+m_delete_all = uimenu(m,"Text",'&Delete all');
+
+m_delete_config.Accelerator = 'D';
+m_run.Accelerator = 'R';
+m_delete_sim.Accelerator = 'Q';
+m_delete_all.Accelerator = 'A';
 
 g1=uigridlayout(fig,[5,3]);
 g1.RowHeight={'1x',35,35,35,35};
@@ -81,14 +97,21 @@ btn_add_walls.ValueChangedFcn={@GenerateWalls_OnOff,uiax,btn_add_person,btn_add_
 btn_add_people_rectangle.ValueChangedFcn={@GeneratePeoplesInRectangle_OnOff,uiax,editfld_num_off_ppl_to_add,btn_add_person,btn_add_walls,btn_delete_person,fig};
 btn_delete_person.ValueChangedFcn={@DeletePerson_OnOff,uiax,btn_add_person,btn_add_walls,btn_add_people_rectangle,fig};
 
-uiax.ButtonDownFcn={@mouseCallback,btn_add_person,btn_add_walls,btn_add_people_rectangle,btn_hit_helper,btn_delete_person,editfld_num_off_ppl_to_add};
+uiax.ButtonDownFcn={@mouseCallback,fig,btn_add_person,btn_add_walls,btn_add_people_rectangle,btn_hit_helper,btn_delete_person,editfld_num_off_ppl_to_add};
 btn_save.ButtonPushedFcn={@saveData,editfld_save,fig};
-btn_del_all.ButtonPushedFcn={@delAll,fig};
-btn_run.ButtonPushedFcn={@runSim,fig};
+btn_del_all.ButtonPushedFcn={@delConfig,fig};
+btn_run.ButtonPushedFcn={@runSim,uiax,fig};
 
 btn_load.ButtonPushedFcn={@loadData,editfld_load,fig,uiax};
 
-function mouseCallback(src, evnt,person_button,wall_button,rect_button,marker_hit_helper_button,del_person_button,nmbr_of_rand_ppl)
+m_load.MenuSelectedFcn = {@loadMenuSelected,fig,uiax};
+m_save.MenuSelectedFcn = {@saveMenuSelected,fig};
+m_run.MenuSelectedFcn = {@runSim,uiax,fig};
+m_delete_config.MenuSelectedFcn={@delConfig,fig};
+m_delete_sim.MenuSelectedFcn={@delSim};
+m_delete_all.MenuSelectedFcn={@delAll,fig};
+
+function mouseCallback(src, evnt,fig,person_button,wall_button,rect_button,marker_hit_helper_button,del_person_button,nmbr_of_rand_ppl)
     xyz = get(src, 'CurrentPoint');
     
     x = xyz(1,1);
@@ -127,7 +150,7 @@ function mouseCallback(src, evnt,person_button,wall_button,rect_button,marker_hi
                 disp("marker not hit");          %thus an empty if is enought
                
             else
-            data.wall_graph_objects(end+1,1:3)=plot(src,x,y,'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',@MouseClickWall);% a bit surprisingly, if i give ,wall_button.Value as the fnc input for the mouseclickwall fnc
+            data.wall_graph_objects(end+1,1:3)=plot(src,x,y,'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});% a bit surprisingly, if i give ,wall_button.Value as the fnc input for the mouseclickwall fnc
                                                                                                                                                                          % it always gives back '1'
             data.wall_coords=[data.wall_coords;x,y,0,0];
             data.walls=1;
@@ -138,7 +161,7 @@ function mouseCallback(src, evnt,person_button,wall_button,rect_button,marker_hi
                 disp("marker not hit");          %thus an empty if is enought
                
             else
-            data.wall_graph_objects(end,2)=plot(src,x,y,'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',@MouseClickWall);
+            data.wall_graph_objects(end,2)=plot(src,x,y,'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
             data.wall_coords(end,3:4)=[x,y];
             data.wall_graph_objects(end,3)=line(src,[data.wall_coords(end,1),data.wall_coords(end,3)],[data.wall_coords(end,2),data.wall_coords(end,4)],'Color','black','LineWidth',2,'Tag',num2str(data.wall_tagger_ind),'HitTest','off');%@(h,e) disp(e.IntersectionPoint));
             data.wall_tagger_ind=data.wall_tagger_ind+1;
@@ -298,60 +321,110 @@ function loadData(src,event,editfld,fig,uiax)
     if isempty(editfld.Value)
         uialert(fig,"The data can not be loaded. Please Add a File Name!","No filename Added")
         return;
-    else
-        %check if the data under the given name exists
-        if isfile(strcat(editfld.Value,'.mat'))==0
-            uialert(fig,"There is no existing file with the given name!","Not a filename")
-            return;
-        end
-        load(strcat(editfld.Value,'.mat')); %loads room_config_datas struct
-        %room_config_datas=data_to_save;
-        %check if the loaded data has the needed fields
-        if sum(isfield(room_config_datas,{'person_coords','vel_coords','goal_coords','wall_coords'}))~=4
-            uialert(fig,"The given file does not have a needed structure","Something wrong")
-            return;
-        end
-        % we delete the existing data
-        del_all(src,event,fig);
-        data=guidata(src); %we want to update everything tho, so no real
-        %need for this, nevermind, we need it because the loaded data is
-        %missing multiple fields
-
-        %add wall elements - later we want to have the "lines" of a wall
-        %independently as graphical objects, so I use for cycles
-        data.wall_coords=room_config_datas.wall_coords; %no need update this also line byy line in a for cycle
-        data.person_coords=room_config_datas.person_coords;
-        data.vel_coords=room_config_datas.vel_coords;
-        data.goal_coords=room_config_datas.goal_coords;
-
-        for ind_wall=1:size(data.wall_coords,1)
-            %it would be nicer to put this to an addWall function and
-            %possibly use this function when we make the wall by clicking,
-            %but the problems are (i) we want to show the start point marker
-            %before choosing the end point and (ii) i cannot get the
-            %handler once outside the function and once inside and update
-            %it first inside and then outside 
-             data.wall_graph_objects(end+1,1:3)=plot(uiax,data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',@MouseClickWall);
-             data.wall_graph_objects(end,2)=plot(uiax,data.wall_coords(ind_wall,3),data.wall_coords(ind_wall,4),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',@MouseClickWall);
-             data.wall_graph_objects(end,3)=line(uiax,[data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,3)],[data.wall_coords(ind_wall,2),data.wall_coords(ind_wall,4)],'Color','black','LineWidth',2,'Tag',num2str(data.wall_tagger_ind),'HitTest','off');
-             data.wall_tagger_ind=data.wall_tagger_ind+1;
-             %guidata(src,data);
-        end
-
-        %add people one-by-one so they are independent graphical objects
-        for ind_ppl=1:2:size(data.person_coords,2)
-            person_indices=ind_ppl+[0,1];
-            data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','HitTest','off');
-            data.ppl_graph_objects(end,3)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
-            data.ppl_graph_objects(end,4)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
-            %later, i will probably shouldn't make a new marker for a goal, if that
-            %goal already exists
-            data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal});
-            data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
-        end
-        guidata(src,data);
-
     end
+    %check if the data under the given name exists
+    if isfile(strcat(editfld.Value,'.mat'))==0
+        uialert(fig,"There is no existing file with the given name!","Not a filename")
+        return;
+    end
+    load(strcat(editfld.Value,'.mat')); %loads room_config_datas struct
+    %room_config_datas=data_to_save;
+    %check if the loaded data has the needed fields
+    if sum(isfield(room_config_datas,{'person_coords','vel_coords','goal_coords','wall_coords'}))~=4
+        uialert(fig,"The given file does not have a needed structure","Something wrong")
+        return;
+    end
+    % we delete the existing data
+    delConfig(src,event,fig);
+    data=guidata(src); %we want to update everything tho, so no real
+    %need for this, nevermind, we need it because the loaded data is
+    %missing multiple fields
+
+    %add wall elements - later we want to have the "lines" of a wall
+    %independently as graphical objects, so I use for cycles
+    data.wall_coords=room_config_datas.wall_coords; %no need update this also line byy line in a for cycle
+    data.person_coords=room_config_datas.person_coords;
+    data.vel_coords=room_config_datas.vel_coords;
+    data.goal_coords=room_config_datas.goal_coords;
+
+    for ind_wall=1:size(data.wall_coords,1)
+        %it would be nicer to put this to an addWall function and
+        %possibly use this function when we make the wall by clicking,
+        %but the problems are (i) we want to show the start point marker
+        %before choosing the end point and (ii) i cannot get the
+        %handler once outside the function and once inside and update
+        %it first inside and then outside 
+         data.wall_graph_objects(end+1,1:3)=plot(uiax,data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
+         data.wall_graph_objects(end,2)=plot(uiax,data.wall_coords(ind_wall,3),data.wall_coords(ind_wall,4),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
+         data.wall_graph_objects(end,3)=line(uiax,[data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,3)],[data.wall_coords(ind_wall,2),data.wall_coords(ind_wall,4)],'Color','black','LineWidth',2,'Tag',num2str(data.wall_tagger_ind),'HitTest','off');
+         data.wall_tagger_ind=data.wall_tagger_ind+1;
+         %guidata(src,data);
+    end
+
+    %add people one-by-one so they are independent graphical objects
+    for ind_ppl=1:2:size(data.person_coords,2)
+        person_indices=ind_ppl+[0,1];
+        data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','HitTest','off');
+        data.ppl_graph_objects(end,3)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
+        data.ppl_graph_objects(end,4)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
+        %later, i will probably shouldn't make a new marker for a goal, if that
+        %goal already exists
+        data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal});
+        data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
+    end
+    guidata(src,data);
+end
+
+function loadMenuSelected(src,event,fig,uiax)
+    file_name = uigetfile('*.mat');
+    load(file_name); %loads room_config_datas struct
+    %room_config_datas=data_to_save;
+    %check if the loaded data has the needed fields
+    if sum(isfield(room_config_datas,{'person_coords','vel_coords','goal_coords','wall_coords'}))~=4
+        uialert(fig,"The given file does not have a needed structure","Something wrong")
+        return;
+    end
+    % we delete the existing data
+    delConfig(src,event,fig);
+    data=guidata(src); %we want to update everything tho, so no real
+    %need for this, nevermind, we need it because the loaded data is
+    %missing multiple fields
+
+    %add wall elements - later we want to have the "lines" of a wall
+    %independently as graphical objects, so I use for cycles
+    data.wall_coords=room_config_datas.wall_coords; %no need update this also line byy line in a for cycle
+    data.person_coords=room_config_datas.person_coords;
+    data.vel_coords=room_config_datas.vel_coords;
+    data.goal_coords=room_config_datas.goal_coords;
+
+    for ind_wall=1:size(data.wall_coords,1)
+        %it would be nicer to put this to an addWall function and
+        %possibly use this function when we make the wall by clicking,
+        %but the problems are (i) we want to show the start point marker
+        %before choosing the end point and (ii) i cannot get the
+        %handler once outside the function and once inside and update
+        %it first inside and then outside 
+         data.wall_graph_objects(end+1,1:3)=plot(uiax,data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
+         data.wall_graph_objects(end,2)=plot(uiax,data.wall_coords(ind_wall,3),data.wall_coords(ind_wall,4),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
+         data.wall_graph_objects(end,3)=line(uiax,[data.wall_coords(ind_wall,1),data.wall_coords(ind_wall,3)],[data.wall_coords(ind_wall,2),data.wall_coords(ind_wall,4)],'Color','black','LineWidth',2,'Tag',num2str(data.wall_tagger_ind),'HitTest','off');
+         data.wall_tagger_ind=data.wall_tagger_ind+1;
+         %guidata(src,data);
+    end
+
+    %add people one-by-one so they are independent graphical objects
+    for ind_ppl=1:2:size(data.person_coords,2)
+        person_indices=ind_ppl+[0,1];
+        data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','HitTest','off');
+        data.ppl_graph_objects(end,3)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
+        data.ppl_graph_objects(end,4)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
+        %later, i will probably shouldn't make a new marker for a goal, if that
+        %goal already exists
+        data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal});
+        data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
+    end
+    guidata(src,data);
+
+    
 end
 
 function saveData(src,event,editfld,fig)
@@ -369,18 +442,50 @@ function saveData(src,event,editfld,fig)
             uialert(fig,"Choose the endpoint of the wall first","Eyy!")
             return;
         else 
-            room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val'});
+            room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val','del_person','sim_graph_objects'});
             save(editfld.Value,'room_config_datas'); %we save the people independently
+        end
+    end
+ end
+% % % 
+function saveMenuSelected(src,event,fig)
+    file_name = uiputfile('*.mat');
+    if file_name~=0
+        data=guidata(src);
+        if isempty(data.goal_coords)==1 %no walls is ok rn
+            uialert(fig,"The data can not be saved, since it is empty","no values to save")
+        elseif data.person_or_goal==1 || data.person_or_goal==2
+            uialert(fig,"Choose a goal to the person first","Eyy!")
+            return;
+        elseif data.walls==1
+            uialert(fig,"Choose the endpoint of the wall first","Eyy!")
+            return;
+        else 
+            room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val','del_person','sim_graph_objects'});
+            save(file_name,'room_config_datas'); %we save the people independently
         end
     end
 end
 
-function delAll(src,event,fig)
+function delConfig(src,event,fig)
     data=guidata(src);
     delete(data.wall_graph_objects);
     delete(data.ppl_graph_objects)
     delete(data.rectangles);
     handle_init(fig);
+end
+
+function delSim(src,event)
+    data=guidata(src);
+    disp('ahaa')
+    delete(data.sim_graph_objects);
+    data.sim_graph_objects=[];
+    guidata(src,data);
+end
+
+function delAll(src,event,fig)
+    delSim(src,event);
+    delConfig(src,event,fig);
 end
 
 function handle_init(fig)
@@ -410,11 +515,12 @@ function handle_init(fig)
     data.rect_point=[];
     data.wall_graph_objects=[];%since we want to delete them possibly
     data.ppl_graph_objects=[];
+    data.sim_graph_objects=[];
     
     guidata(fig,data);
 end
 
-function MouseClickWall(src,event)
+function MouseClickWall(src,event,fig)
     disp("wall marker hit");
    
     %setGlobala1(event.Source)
@@ -425,12 +531,12 @@ function MouseClickWall(src,event)
         data.wall_coords=[data.wall_coords;event.IntersectionPoint(1),event.IntersectionPoint(2),0,0];
         data.walls=1;
         %data.wall_graph_objects(end+1,1:3)=event.Source;
-        data.wall_graph_objects(end+1,1:3)=plot(src.Parent,event.IntersectionPoint(1),event.IntersectionPoint(2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',@MouseClickWall);
+        data.wall_graph_objects(end+1,1:3)=plot(src.Parent,event.IntersectionPoint(1),event.IntersectionPoint(2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
         guidata(src,data);
     elseif data.wall_button_val==1 && data.walls==1
         data.wall_coords(end,3:4)=[event.IntersectionPoint(1),event.IntersectionPoint(2)];
         %data.wall_graph_objects(end,2)=event.Source;
-        data.wall_graph_objects(end,2)=plot(src.Parent,event.IntersectionPoint(1),event.IntersectionPoint(2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',@MouseClickWall);
+        data.wall_graph_objects(end,2)=plot(src.Parent,event.IntersectionPoint(1),event.IntersectionPoint(2),'ok',"MarkerSize",10,'MarkerFaceColor','k','Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickWall,fig});
 
         data.wall_graph_objects(end,3)=line(src.Parent,[data.wall_coords(end,1),data.wall_coords(end,3)],[data.wall_coords(end,2),data.wall_coords(end,4)],'Color','black','LineWidth',2,'Tag',num2str(data.wall_tagger_ind),'HitTest','off');%@(h,e) disp(e.IntersectionPoint));
         data.wall_tagger_ind=data.wall_tagger_ind+1;
@@ -442,6 +548,7 @@ function MouseClickWall(src,event)
         delete(data.wall_graph_objects(ind_to_del,:));
         data.wall_graph_objects=data.wall_graph_objects(~(ind_to_del~=0),:);
         data.wall_coords=data.wall_coords(~(ind_to_del~=0),:);
+        guidata(fig,data);
     end
 end
 
@@ -483,7 +590,7 @@ function MouseClickGoal(src,event,nmbr_of_rand_ppl)
     end
 end
 
-function runSim(src,event,fig)
+function runSim(src,event,uiax,fig)
     data=guidata(src);
     if data.rect_button_val==1 || data.person_button_val==1 || data.wall_button_val==1
         uialert(fig,"Finish the building","Eyy!")
@@ -493,8 +600,11 @@ function runSim(src,event,fig)
         return;
     end
     %similarly as in saveData
-    room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val'});
-    social_force_model_gui(room_config_datas)
+    room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val','sim_graph_objects'});
+    newfigure_logical=0;
+    delSim(src,event);
+    data.sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical);
+    guidata(src,data);
 end
 
 %{
