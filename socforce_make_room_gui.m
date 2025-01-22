@@ -120,7 +120,7 @@ function mouseCallback(src, evnt,fig,person_button,wall_button,rect_button,marke
     data=guidata(src);
     if person_button.Value==1
         if data.person_or_goal==0 %person coords
-            data.ppl_graph_objects(end+1,1:5)=plot(src,x,y,'*k','HitTest','off');
+            data.ppl_graph_objects(end+1,1:5)=plot(src,x,y,'*k','ButtonDownFcn',{@MouseClickPerson,fig});
             data.ppl_graph_objects(end,3)=appviscircles(src,[x,y],0.25,'Color',"red");
             
             data.person_coords=[data.person_coords,x,y];
@@ -137,7 +137,7 @@ function mouseCallback(src, evnt,fig,person_button,wall_button,rect_button,marke
                 disp("marker not hit");          %thus an empty if is enought, data.person_or_goal stays 2
                
             else
-            data.ppl_graph_objects(end,2)=plot(src,x,y,'*b',"MarkerSize",10,'ButtonDownFcn',{@MouseClickGoal,nmbr_of_rand_ppl});
+            data.ppl_graph_objects(end,2)=plot(src,x,y,'*b',"MarkerSize",10,'ButtonDownFcn',{@MouseClickGoal,fig,nmbr_of_rand_ppl});
             data.goal_coords=[data.goal_coords,x,y];
             data.ppl_graph_objects(end,5)=line(src,[data.person_coords(end-1),data.goal_coords(end-1)],[data.person_coords(end),data.goal_coords(end)],'Color','magenta','LineStyle','--','HitTest','off');
             data.person_or_goal=0;
@@ -196,7 +196,7 @@ function mouseCallback(src, evnt,fig,person_button,wall_button,rect_button,marke
             if marker_hit_helper_button.Value==1 %in this case we do not click on the marker but on somewhere in the axis
                 disp("marker not hit");          %thus an empty if is enought  
             else
-            data.ppl_graph_objects(end,2)=plot(src,x,y,'*b','MarkerSize',10,'ButtonDownFcn',{@MouseClickGoal,nmbr_of_rand_ppl});
+            data.ppl_graph_objects(end,2)=plot(src,x,y,'*b','MarkerSize',10,'ButtonDownFcn',{@MouseClickGoal,fig,nmbr_of_rand_ppl});
             data.goal_coords=[data.goal_coords,repmat([x,y],1,str2num(nmbr_of_rand_ppl.Value))];
             tmp_plot_x=zeros(1,2*str2num(nmbr_of_rand_ppl.Value));
             tmp_plot_y=zeros(1,2*str2num(nmbr_of_rand_ppl.Value));
@@ -364,12 +364,12 @@ function loadData(src,event,editfld,fig,uiax)
     %add people one-by-one so they are independent graphical objects
     for ind_ppl=1:2:size(data.person_coords,2)
         person_indices=ind_ppl+[0,1];
-        data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','HitTest','off');
+        data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','ButtonDownFcn',{@MouseClickPerson,fig});
         data.ppl_graph_objects(end,3)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
         data.ppl_graph_objects(end,4)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
         %later, i will probably shouldn't make a new marker for a goal, if that
         %goal already exists
-        data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal});
+        data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal,fig});
         data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
     end
     guidata(src,data);
@@ -414,12 +414,12 @@ function loadMenuSelected(src,event,fig,uiax)
     %add people one-by-one so they are independent graphical objects
     for ind_ppl=1:2:size(data.person_coords,2)
         person_indices=ind_ppl+[0,1];
-        data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','HitTest','off');
+        data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','ButtonDownFcn',{@MouseClickPerson,fig});
         data.ppl_graph_objects(end,3)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
         data.ppl_graph_objects(end,4)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
         %later, i will probably shouldn't make a new marker for a goal, if that
         %goal already exists
-        data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal});
+        data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal,fig});
         data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
     end
     guidata(src,data);
@@ -552,12 +552,13 @@ function MouseClickWall(src,event,fig)
     end
 end
 
-function MouseClickGoal(src,event,nmbr_of_rand_ppl)
+function MouseClickGoal(src,event,fig,nmbr_of_rand_ppl)
     disp("goal marker hit");
     data=guidata(src);
-    if data.person_button_wall==1 && data.person_or_goal==2
+    if data.person_button_val==1 && data.person_or_goal==2
         disp(event.IntersectionPoint)
-        data.goal_coords=[data.goal_coords,event.IntersectionPoint(1),event.IntersectionPoint(2)];
+        data.goal_coords=[data.goal_coords,event.Source.XData(1),event.Source.YData(1)];
+        data.ppl_graph_objects(end,2)=plot(src.Parent,event.Source.XData(1),event.Source.YData(1),'*b',"MarkerSize",10,'ButtonDownFcn',{@MouseClickGoal,fig,nmbr_of_rand_ppl});
         data.person_or_goal=0;
         data.ppl_graph_objects(end,5)=line(src.Parent,[data.person_coords(end-1),data.goal_coords(end-1)],[data.person_coords(end),data.goal_coords(end)],'Color','magenta','LineStyle','--','HitTest','off');
         guidata(src,data);
@@ -565,7 +566,7 @@ function MouseClickGoal(src,event,nmbr_of_rand_ppl)
         disp(event.IntersectionPoint)
         
         disp(str2num(nmbr_of_rand_ppl.Value))
-        data.goal_coords=[data.goal_coords,repmat([event.IntersectionPoint(1),event.IntersectionPoint(2)],1,str2num(nmbr_of_rand_ppl.Value))];
+        data.goal_coords=[data.goal_coords,repmat([event.Source.XData(1),event.Source.YData(1)],1,str2num(nmbr_of_rand_ppl.Value))];
         tmp_plot_x=zeros(1,2*str2num(nmbr_of_rand_ppl.Value));
         tmp_plot_y=zeros(1,2*str2num(nmbr_of_rand_ppl.Value));
         tmp_plot_x(1:2:end)=data.person_coords(end-2*str2num(nmbr_of_rand_ppl.Value)+1:2:end);%x init coords
@@ -577,16 +578,75 @@ function MouseClickGoal(src,event,nmbr_of_rand_ppl)
         data.rect_point=[];
         data.rect=0;
         guidata(src,data);
-    elseif data.rect_button_val==0 &&data.person_button_wall==0 && data.del_person==1
+    elseif data.rect_button_val==0 &&data.person_button_val==0 && data.del_person==1
+        %{
         %delete the marker 
-        ind_to_del=findobj(ppl_graph_objects(:,2),'XData',event.IntersectionPoint(1),'YData',event.IntersectionPoint(2));
+        ind_to_del=data.ppl_graph_objects(:,2)==event.Source
         delete(data.ppl_graph_objects(ind_to_del,:));
-        data.ppl_graph_objects=data.ppl_graph_objects(~(ind_to_del),:);
-        %delete person,goal, initvel,etc
-
-        %data.wall_coords=data.wall_coords(~(ind_to_del~=0),:);
-        %delete the data
+        %delete data
+        ind_num=find(ind_to_del==1)
+        data.ppl_graph_objects
+        data.ppl_graph_objects=data.ppl_graph_objects(~(ind_to_del~=0),:);
+        data.ppl_graph_objects
+        [1:2*(ind_num-1),(2*ind_num)+1:(size(data.person_coords,2)/2)]
+        data.person_coords=data.person_coords([1:2*(ind_num-1),(2*ind_num)+1:size(data.person_coords,2)]);
+        data.vel_coords=data.vel_coords([1:2*(ind_num-1),(2*ind_num)+1:size(data.person_coords,2)]);
+        data.goal_coords=data.goal_coords([1:2*(ind_num-1),(2*ind_num)+1:size(data.person_coords,2)]);
+        guidata(fig,data);
+        %}
+        %
+        indices=(data.goal_coords(1:2:end)==event.Source.XData(1)) & (data.goal_coords(2:2:end)==event.Source.YData(1));
+        indices_double=zeros(1,2*length(indices));
+        ind_nums=find(indices==1);
+        indices_double(1:2:end)=indices;
+        indices_double(2:2:end)=indices;
         
+        delete(data.ppl_graph_objects(ind_nums,:));
+        data.ppl_graph_objects=data.ppl_graph_objects(~indices,:);
+        data.person_coords=data.person_coords(~indices_double);
+        data.vel_coords=data.vel_coords(~indices_double);
+        data.goal_coords=data.goal_coords(~indices_double);
+        guidata(fig,data);
+        %}
+        
+    end
+end
+
+function MouseClickPerson(src,event,fig)
+    disp("goal marker hit");
+    data=guidata(src);
+    if  data.del_person==1
+        %
+        %delete the marker 
+        %ind_to_del=data.ppl_graph_objects(:,1)==event.Source
+        delete(data.ppl_graph_objects(ind_to_del,:));
+        %delete data
+        %ind_num=find(ind_to_del==1)
+        %data.ppl_graph_objects
+        data.ppl_graph_objects=data.ppl_graph_objects(~(ind_to_del~=0),:);
+        %data.ppl_graph_objects
+        %[1:2*(ind_num-1),(2*ind_num)+1:(size(data.person_coords,2)/2)]
+        data.person_coords=data.person_coords([1:2*(ind_num-1),(2*ind_num)+1:size(data.person_coords,2)]);
+        data.vel_coords=data.vel_coords([1:2*(ind_num-1),(2*ind_num)+1:size(data.person_coords,2)]);
+        data.goal_coords=data.goal_coords([1:2*(ind_num-1),(2*ind_num)+1:size(data.person_coords,2)]);
+        guidata(fig,data);
+        %}
+        %{
+        
+        indices=(data.person_coords(1:2:end)==event.Source.XData(1)) & (data.person_coords(2:2:end)==event.Source.YData(1));
+        indices_double=zeros(1,2*length(indices));
+        ind_nums=find(indices==1);
+        indices_double(1:2:end)=indices;
+        indices_double(2:2:end)=indices;
+        
+        delete(data.ppl_graph_objects(ind_nums,:));
+        data.ppl_graph_objects=data.ppl_graph_objects(~indices,:);
+        data.person_coords=data.person_coords(~indices_double);
+        data.vel_coords=data.vel_coords(~indices_double);
+        data.goal_coords=data.goal_coords(~indices_double);
+        guidata(fig,data);
+            
+        %}
     end
 end
 
