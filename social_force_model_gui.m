@@ -1,5 +1,4 @@
-
-function sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical)
+function sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical,run_as_movie_logical)
 %clear variables
 %close all
 %clc
@@ -161,9 +160,10 @@ close(d1)
 
 %plot_vector_field_one_person(-6,-6,6,6,0.5,F_goal)
 
-[y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room,fig);
+[y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room,run_as_movie_logical,fig,uiax);
 
-sim_graph_objects=simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical);
+%in the case, when we run a movie, after its done, we still want to see it:
+sim_graph_objects=simple_plot(y,step_size,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical);
 
 %movie_plot(y,t,num_of_ppl)
 
@@ -188,16 +188,17 @@ end
 %numerical methods:
 %we will need to define 'f'
 
-function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room,fig)
-    d2 = uiprogressdlg(fig,'Title','Please Wait',...
-        'Message','Simulating');
+    function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room,run_as_movie_logical,fig,ax)
+       if run_as_movie_logical==0
+            d2 = uiprogressdlg(fig,'Title','Please Wait','Message','Simulating');
+       end
 
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
     %save forces
     %forces=zeros(N,length(init)/2,3);
     forces_k=zeros(N,length(init)/2,3);
-
+    plot_tmp=plot(uiax,[],[]);
     y(1,:)=init;
 
     for j=1:N-1
@@ -237,13 +238,21 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords]);
         y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
         %f_x(y(j,2*num_of_ppl+1:end))
-
-        if mod(j,200)==0
+        if mod(j,30)==0 && run_as_movie_logical==1
+            pause(0.001)
+            delete(plot_tmp)
+            plot_tmp(1)=plot(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),'o',"MarkerSize",8,'MarkerFaceColor','b');
+            plot_tmp(2)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),y(j+1,2*num_of_ppl+1:2:end),y(j+1,2*num_of_ppl+2:2:end),'Color','m','LineWidth',1.6,'AutoScale','off');
+            plot_tmp(3)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,3),1/h*forces_k(j,2:2:end,3),'Color','g','LineWidth',1.6,'AutoScale','off');
+            plot_tmp(4)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,2),1/h*forces_k(j,2:2:end,2),'Color','r','LineWidth',1.6,'AutoScale','off');
+        elseif mod(j,200)==0 && run_as_movie_logical==0
             d2.Value = j/(N-1); 
         end
-
+        
     end
-    close(d2)
+    if run_as_movie_logical==0
+        close(d2);
+    end
 end
 
 
@@ -286,7 +295,7 @@ function y_n=rk4_v(t,y,h)
     y_n=y+1/6*h*(k1+2*k2+2*k3+k4);
 end
 
-function sim_graph_objects=simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical)
+function sim_graph_objects=simple_plot(y,h,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical)
     sim_graph_objects=[];
     if newfigure_logical==1
         figure;
@@ -304,7 +313,7 @@ function sim_graph_objects=simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,ui
     end
     
     
-    a1= plot(ax,y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5);
+    a1= plot(ax,y(1:end,1:2:size(y,2)/2),y(1:end,2:2:size(y,2)/2),'LineWidth',1.5);%people coords
 
     sim_graph_objects(end+1:end+num_of_ppl)=a1;
     
@@ -327,10 +336,10 @@ function sim_graph_objects=simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,ui
     %}
     %f_wall
     wall_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,3),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,3),[],1)];
-    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),wall_force_tmp(:,1),wall_force_tmp(:,2),'Color','g','LineWidth',1.6);
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),1/h*wall_force_tmp(:,1),1/h*wall_force_tmp(:,2),'Color','g','LineWidth',1.6,'AutoScale','off');
     %f_soc
     soc_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,2),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,2),[],1)];
-    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),soc_force_tmp(:,1),soc_force_tmp(:,2),'Color','r','LineWidth',1.6);
+    sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),1/h*soc_force_tmp(:,1),1/h*soc_force_tmp(:,2),'Color','r','LineWidth',1.6,'AutoScale','off');
 
     %plot goals 
     sim_graph_objects(end+1)=plot(ax,ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);

@@ -2,6 +2,8 @@ clear all
 close all
 clc
 
+
+
 fig=uifigure("Name", "Make Room");
 
 %global globvar;
@@ -14,12 +16,14 @@ m_save.Accelerator = 'S';
 
 m = uimenu(fig,'Text','&Edit');
 m_run = uimenu(m,'Text','&Run');
+m_run_movie=uimenu(m,'Text','&Run movie');
 m_delete_config = uimenu(m,'Text','&Delete config');
 m_delete_sim = uimenu(m,'Text','&Delete simulation');
 m_delete_all = uimenu(m,"Text",'&Delete all');
 
 m_delete_config.Accelerator = 'D';
 m_run.Accelerator = 'R';
+m_run_movie.Accelerator = 'T';
 m_delete_sim.Accelerator = 'Q';
 m_delete_all.Accelerator = 'A';
 
@@ -100,13 +104,14 @@ btn_delete_person.ValueChangedFcn={@DeletePerson_OnOff,uiax,btn_add_person,btn_a
 uiax.ButtonDownFcn={@mouseCallback,fig,btn_add_person,btn_add_walls,btn_add_people_rectangle,btn_hit_helper,btn_delete_person,editfld_num_off_ppl_to_add};
 btn_save.ButtonPushedFcn={@saveData,editfld_save,fig};
 btn_del_all.ButtonPushedFcn={@delConfig,fig};
-btn_run.ButtonPushedFcn={@runSim,uiax,fig};
+btn_run.ButtonPushedFcn={@runSim,uiax,fig,0};
 
 btn_load.ButtonPushedFcn={@loadData,editfld_load,fig,uiax};
 
 m_load.MenuSelectedFcn = {@loadMenuSelected,fig,uiax};
 m_save.MenuSelectedFcn = {@saveMenuSelected,fig};
-m_run.MenuSelectedFcn = {@runSim,uiax,fig};
+m_run.MenuSelectedFcn = {@runSim,uiax,fig,0};
+m_run_movie.MenuSelectedFcn={@runSim,uiax,fig,1};
 m_delete_config.MenuSelectedFcn={@delConfig,fig};
 m_delete_sim.MenuSelectedFcn={@delSim};
 m_delete_all.MenuSelectedFcn={@delAll,fig};
@@ -650,7 +655,7 @@ function MouseClickPerson(src,event,fig)
     end
 end
 
-function runSim(src,event,uiax,fig)
+function runSim(src,event,uiax,fig,run_as_movie_logical)
     data=guidata(src);
     if data.rect_button_val==1 || data.person_button_val==1 || data.wall_button_val==1
         uialert(fig,"Finish the building","Eyy!")
@@ -663,7 +668,7 @@ function runSim(src,event,uiax,fig)
     room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val','sim_graph_objects'});
     newfigure_logical=0;
     delSim(src,event);
-    data.sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical);
+    data.sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical,run_as_movie_logical);
     guidata(src,data);
 end
 
