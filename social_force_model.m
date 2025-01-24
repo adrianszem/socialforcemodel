@@ -21,7 +21,7 @@ clc
 % we will save this as cell array of structs
 
 %
-num_of_ppl=20;
+num_of_ppl=5;
 disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
 
 
@@ -36,7 +36,6 @@ for ind1=1:2:2*num_of_ppl
            init_pos(ind1+[0,1])=randi([-9,9],1,2);
         end
     end
-
 end
 
 
@@ -60,7 +59,7 @@ ppl_goal=onerun.ppl_goal;
 
 save_tf=0;
 %}
-
+%{
 for ind1=1:2:2*num_of_ppl 
     ppl_tmp=init_pos(ind1+[0,1]);
     for ind2=ind1+2:2*(num_of_ppl-1)
@@ -68,9 +67,8 @@ for ind1=1:2:2*num_of_ppl
            init_pos(ind1+[0,1])=randi([-9,9],1,2);
         end
     end
-
 end
-
+%}
 %ppl=struct('index',num2cell(1:num_of_ppl),'extra_attr',[],'a_coords',[],'v_coords',[],'x_coords',[]);   %empty cell of structs 
 if disc_wall==1
     load('room_for_soc_forc_mod.mat')%room, see make_discrete_room.m
@@ -126,43 +124,49 @@ kappa=100;
 X = sym("x",[1 2*num_of_ppl]);
 V = sym("v",[1 2*num_of_ppl]);
 B = sym("b",[1 2*num_of_ppl]);%closest wall coordinates
-X_tmp=sqrt((X(1:2:end)-ppl_goal(1:2:end)).^2+(X(2:2:end)-ppl_goal(2:2:end)).^2);
+X_tmp=sqrt((X(1:2:2*num_of_ppl)-ppl_goal(1:2:2*num_of_ppl)).^2+(X(2:2:2*num_of_ppl)-ppl_goal(2:2:2*num_of_ppl)).^2);
+
+%not_at_goal=X_tmp>1;
+%not_at_goal_double(1:2:2*num_of_ppl)=not_at_goal;
+%not_at_goal_double(2:2:2*num_of_ppl)=not_at_goal;
+
 X_norm(1:2:2*num_of_ppl)=X_tmp;
 X_norm(2:2:2*num_of_ppl)=X_tmp;
 
-V_tmp=sqrt(V(1:2:end).^2+V(2:2:end).^2);
+V_tmp=sqrt(V(1:2:2*num_of_ppl).^2+V(2:2:2*num_of_ppl).^2);
 V_norm(1:2:2*num_of_ppl)=V_tmp;
 V_norm(2:2:2*num_of_ppl)=V_tmp;
 
 f_dir=1/tau*((ppl_goal-X)./X_norm*v_0-V);
-f_soc=f_dir-f_dir;
-f_g=f_dir-f_dir;
-f_k=f_dir-f_dir;%body force
-f_w=f_dir-f_dir;
+%f_dir=f_dir.*ones(size(f_dir));
+f_soc=sym(zeros(1,2*num_of_ppl));
+f_g=sym(zeros(1,2*num_of_ppl));
+f_k=sym(zeros(1,2*num_of_ppl));%body force
+f_w=sym(zeros(1,2*num_of_ppl));
 
 %f_2_ppl=A_i*exp((r_ij-)/B_i);
 tic
-for p1=1:num_of_ppl
-    %others=cat(2,1:p1-1,p1+1:num_of_ppl);
+%indices_tmp=1:num_of_ppl;
+for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl 
     x_p1=X(2*p1+[-1,0]);
     b_p1=B(2*p1+[-1,0]);
-    v_p1=V(2*p1+[-1,0]);
+    %v_p1=V(2*p1+[-1,0]);
     v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
     
     X_others=X(reshape(2*cat(2,1:p1-1,p1+1:num_of_ppl)+[-1,0]',1,2*(num_of_ppl-1)));
     X_ij=repmat(x_p1,1,(num_of_ppl-1))-X_others;
-    d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
+    %d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
     d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
     n_ij=X_ij./d_ij_double;
     f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
-    angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
-
+    %wall force
     d_ib=sqrt(sum((x_p1-b_p1).^2));
     n_ib=(x_p1-b_p1)/d_ib;
     angles_ib=sum(-n_ib.*(V(2*p1+[-1,0])./sqrt(sum((V(2*p1+[-1,0])).^2))));
     lambda_part_wall=lambda_i+(1-lambda_i)*1/2*(1+angles_ib);
     f_wall_of_p1=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
-
+    %soc force
+    angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
     lambda_part=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
     f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part;
     f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
@@ -238,11 +242,13 @@ function [y,forces_k]=exp_euler_discrete_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_w
         forces_k(j,:,2)=h*f_v_soc(y(j,:));
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords(:)']);
         y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
+
         %f_x(y(j,2*num_of_ppl+1:end))
     end
 end
 
 function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
+    r_ij=0.5;
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
     %save forces
@@ -318,11 +324,14 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
 
         %y(j+1,:)=y(j,:)+h*[cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),f_v_dir(y(j,:))+f_v_soc(y(j,:))+f_v_wall([y(j,:),min_wall_coords(:)'])];
         %forces(j,:,:)=[f_v_dir(y(j,:));f_v_soc(y(j,:));f_v_wall([y(j,:),min_wall_coords(:)'])];
+
+        %vecnorm([y(j+1,1:2:2*num_of_ppl);y(j+1,2:2:2*num_of_ppl)]-[ppl_goal(1:2:end);ppl_goal(2:2:end)],2,1)<r_ij
+
         forces_k(j,:,1)=h*f_v_dir(y(j,:));
         forces_k(j,:,2)=h*f_v_soc(y(j,:));
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords]);
         y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
-        %f_x(y(j,2*num_of_ppl+1:end))
+
     end
 end
 
