@@ -65,9 +65,9 @@ k=100;
 kappa=100;
 
 %this in an f function later
-X=init_pos;
-V=init_vel;
-B=find_closest_wall_coords(x,room);%closest wall coordinates
+X=[9     8     1     0    -6    -7    -2    -6     0    -3];%init_pos;
+V=[ 0    -1     3     7     7     5     7     7     1     1];%init_vel;
+B=find_closest_wall_coords(X,room);%closest wall coordinates
 %{
 X = sym("x",[1 2*num_of_ppl]);
 V = sym("v",[1 2*num_of_ppl]);
@@ -77,17 +77,39 @@ B = sym("b",[1 2*num_of_ppl]);%closest wall coordinates
 X_tmp=sqrt((X(1:2:2*num_of_ppl)-ppl_goal(1:2:2*num_of_ppl)).^2+(X(2:2:2*num_of_ppl)-ppl_goal(2:2:2*num_of_ppl)).^2);
 X_norm(1:2:2*num_of_ppl)=X_tmp;
 X_norm(2:2:2*num_of_ppl)=X_tmp;
-
+%{
 V_tmp=sqrt(V(1:2:2*num_of_ppl).^2+V(2:2:2*num_of_ppl).^2);
 V_norm(1:2:2*num_of_ppl)=V_tmp;
 V_norm(2:2:2*num_of_ppl)=V_tmp;
+%}
+V_norm=zeros(1,2*num_of_ppl);
+V_norm(1:2:2*num_of_ppl)=sqrt(V(1:2:2*num_of_ppl).^2+V(2:2:2*num_of_ppl).^2);
+V_norm(2:2:2*num_of_ppl)=V_norm(1:2:2*num_of_ppl);
 
 f_dir=1/tau*((ppl_goal-X)./X_norm*v_0-V);%dir force
 f_soc=zeros(1,2*num_of_ppl);%soc frce
 f_g=zeros(1,2*num_of_ppl);
 f_k=zeros(1,2*num_of_ppl);%body force
-f_w=zeros(1,2*num_of_ppl);%wall force
+%f_w=zeros(1,2*num_of_ppl);%wall force
 
+%wall force making:
+d_ib=zeros(1,2*num_of_ppl);
+d_ib(1:2:2*num_of_ppl)=sqrt((X(1:2:2*num_of_ppl)-B(1:2:2*num_of_ppl)).^2+(X(2:2:2*num_of_ppl)-B(2:2:2*num_of_ppl)).^2);
+d_ib(2:2:2*num_of_ppl)=d_ib(1:2:2*num_of_ppl);
+%normed vector from now checked person to its closest wall coords
+n_ib=(X-B)./d_ib;
+
+%angle dependency part (between the wall and the direction of the movement of the person)
+angles_all_tmp=-n_ib.*(V./V_norm);
+angles_ib_all=angles_all_tmp(1:2:2*num_of_ppl)+angles_all_tmp(2:2:2*num_of_ppl);%dotprods
+lambda_part_wall=zeros(1,2*num_of_ppl);
+lambda_part_wall(1:2:2*num_of_ppl)=lambda_i+(1-lambda_i)*1/2*(1+angles_ib_all);
+lambda_part_wall(2:2:2*num_of_ppl)=lambda_part_wall(1:2:2*num_of_ppl);
+%wall force
+f_w=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
+
+%}
+%sqrt((X(1:2:2*num_of_ppl)-B(1:2:2*num_of_ppl)).^2+(X(2:2:2*num_of_ppl)-B(2:2:2*num_of_ppl)).^2);
 for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl 
     x_p1=X(2*p1+[-1,0]);%coords of the used person
     b_p1=B(2*p1+[-1,0]);%coords of the used persons closes wall
@@ -102,6 +124,7 @@ for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl
     d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
     %normed vectors from all the other people pointing to the now checked person
     n_ij=X_ij./d_ij_double;
+    %{
     %wall force making:
     d_ib=sqrt(sum((x_p1-b_p1).^2));
     %normed vector from now checked person to its closest wall coords
@@ -117,12 +140,13 @@ for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl
     angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
     lambda_part_soc=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
     f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part_soc;
+    f_w(2*p1+[-1,0])=f_wall_of_p1;
+    %}
     %body forces
     f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
     f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
     %soc force
     f_soc(2*p1+[-1,0])=f_soc(2*p1+[-1,0])+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
-    f_w(2*p1+[-1,0])=f_wall_of_p1;
 end
 
 function min_wall_coords=find_closest_wall_coords(x,room)
