@@ -58,8 +58,6 @@ room.n_s(:,1:2:end)=-room.u_s(:,2:2:end);
 room.n_s(:,2:2:end)=room.u_s(:,1:2:end);
 room.lengths=vecnorm(room.u_s,2,2);
 
-
-
 t_0=0;
 t_max=10;
 step_size=1/200;
@@ -107,34 +105,33 @@ V_norm(1:2:2*num_of_ppl)=V_tmp;
 V_norm(2:2:2*num_of_ppl)=V_tmp;
 
 f_dir=1/tau*((ppl_goal-X)./X_norm*v_0-V);
-f_soc=f_dir-f_dir;
-f_g=f_dir-f_dir;
-f_k=f_dir-f_dir;%body force
-f_w=f_dir-f_dir;
+f_soc=sym(zeros(1,2*num_of_ppl));
+f_g=sym(zeros(1,2*num_of_ppl));
+f_k=sym(zeros(1,2*num_of_ppl));%body force
+f_w=sym(zeros(1,2*num_of_ppl));
 
 %f_2_ppl=A_i*exp((r_ij-)/B_i);
 tic
 for p1=1:num_of_ppl
-    %others=cat(2,1:p1-1,p1+1:num_of_ppl);
     x_p1=X(2*p1+[-1,0]);
     b_p1=B(2*p1+[-1,0]);%wall coords
-    v_p1=V(2*p1+[-1,0]);
+    %v_p1=V(2*p1+[-1,0]);
     v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
     
     X_others=X(reshape(2*cat(2,1:p1-1,p1+1:num_of_ppl)+[-1,0]',1,2*(num_of_ppl-1)));
     X_ij=repmat(x_p1,1,(num_of_ppl-1))-X_others;
-    d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
+    %d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
     d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
     n_ij=X_ij./d_ij_double;
     f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
-    angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
-
+    %wall force
     d_ib=sqrt(sum((x_p1-b_p1).^2));
     n_ib=(x_p1-b_p1)/d_ib;
     angles_ib=sum(-n_ib.*(V(2*p1+[-1,0])./sqrt(sum((V(2*p1+[-1,0])).^2))));
     lambda_part_wall=lambda_i+(1-lambda_i)*1/2*(1+angles_ib);
     f_wall_of_p1=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
-
+    %soc force
+    angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
     lambda_part=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
     f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part;
     f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
