@@ -20,7 +20,7 @@ clc
 % array)
 % we will save this as cell array of structs
 
-%
+%{
 num_of_ppl=5;
 disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
 
@@ -44,8 +44,8 @@ init_vel=[0,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1
 save_tf=1;
 %}
 
-%{
-load('test_ppl_924839_socforcmodel.mat')
+%
+load('test_ppl_362206_socforcmodel.mat')
 disc_wall=0;
 num_of_ppl=onerun.num_of_ppl;
 
@@ -91,7 +91,7 @@ end
 
 
 t_0=0;
-t_max=10;
+t_max=20;
 step_size=1/200;
 t=t_0:step_size:t_max;
 num_of_time_grid=length(t);
@@ -118,7 +118,7 @@ lambda_i=0;
 r_ij=0.5;
 k=100;
 kappa=100;
-
+tic
 %A = sym("a",[1 2*num_of_ppl]);
 %or can be defined by syms a [1 10] if we dont want them in an array struct
 X = sym("x",[1 2*num_of_ppl]);
@@ -145,7 +145,7 @@ f_k=sym(zeros(1,2*num_of_ppl));%body force
 f_w=sym(zeros(1,2*num_of_ppl));
 
 %f_2_ppl=A_i*exp((r_ij-)/B_i);
-tic
+
 %indices_tmp=1:num_of_ppl;
 for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl 
     x_p1=X(2*p1+[-1,0]);
@@ -173,15 +173,15 @@ for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl
     f_soc(2*p1+[-1,0])=f_soc(2*p1+[-1,0])+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
     f_w(2*p1+[-1,0])=f_wall_of_p1;
 end
-toc
+
 
 %convert symbolic function to function handle
-f_norm=matlabFunction(X_norm,"Vars",{X});% for the cutoff function
+%f_norm=matlabFunction(X_norm,"Vars",{X});% for the cutoff function
 f_vect_soc=matlabFunction(f_soc,"Vars",{[X,V]});%{} instead of [] to have the inpts as arrays
 f_x=matlabFunction(V,"Vars", {V});% id fnc
 f_wall_vect=matlabFunction(f_w,"Vars",{[X,V,B]});
 f_vect_dir=matlabFunction(f_dir,"Vars",{[X,V]});
-
+toc
 %cutting it if velocity tto large:
 %ll=piecewise(V_norm(1)<v_max,V(1:2),V_norm(1)>=v_max,V(1:2)./V_norm(1,2)*v_max);
 %unfortunately matlabFunction cant do piecewise functions
@@ -191,9 +191,9 @@ f_vect_dir=matlabFunction(f_dir,"Vars",{[X,V]});
 %plot_vector_field_one_person(-6,-6,6,6,0.5,F_goal)
 tic
 if disc_wall==1
-    [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
+    [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,v_max,v_0,room);
 else
-    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room);
+    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,v_max,v_0,room);
 end
 toc
 
@@ -215,10 +215,9 @@ if save_tf==1
     disp(['initvals were saved as ', file_name])
 end
 
-
 %numerical methods:
 %we will need to define 'f'
-function [y,forces_k]=exp_euler_discrete_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
+function [y,forces_k]=exp_euler_discrete_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,v_max,v_0,room)
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
     %save forces
@@ -241,13 +240,13 @@ function [y,forces_k]=exp_euler_discrete_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_w
         forces_k(j,:,1)=h*f_v_dir(y(j,:));
         forces_k(j,:,2)=h*f_v_soc(y(j,:));
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords(:)']);
-        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),v_max,v_0),sum(forces_k(j,:,:),3)];
 
         %f_x(y(j,2*num_of_ppl+1:end))
     end
 end
 
-function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room)
+function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,v_max,v_0,room)
     r_ij=0.5;
     num_of_ppl=length(init)/4;
     y=zeros(N,length(init));
@@ -313,9 +312,6 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
         %min_wall_coords=closest_vectors(:)';
         %n_u2=tt2(linindices).*room.n_s([min_ind],:)';
         min_wall_coords=us(linindices);%y(j,1:2*num_of_ppl)-n_u2(:)';
-
-
-        
         %}
 
         %vv=reshape(repmat(y(j,1:2*num_of_ppl),size(room.wall_coords,1),1)-repmat(room.wall_coords,1,num_of_ppl),size(room.wall_coords,1),2,[]);
@@ -330,14 +326,20 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,
         forces_k(j,:,1)=h*f_v_dir(y(j,:));
         forces_k(j,:,2)=h*f_v_soc(y(j,:));
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords]);
-        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
+        %f1=squeeze(forces_k(j,:,:))
+        %save('f1.mat','f1')
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),v_max,v_0),sum(forces_k(j,:,:),3)];
 
     end
+    %f1=forces_k;
+    %save('f1.mat','f1')
 end
 
-
-function vect=cutoff_fnc(vect,f_norm,v_max,v_0)%cannot be implemented by symbolic fnc...
-    indxs_tmp=f_norm(vect)>=v_max;
+function vect=cutoff_fnc(vect,v_max,v_0)%cannot be implemented by symbolic fnc...
+    vect_norm=zeros(1,size(vect,2));
+    vect_norm(1:2:end)=sqrt(vect(1:2:end).^2+vect(2:2:end).^2);
+    vect_norm(2:2:end)=vect_norm(1:2:end);
+    indxs_tmp=(vect_norm>=v_max);
     vals_to_cut_off=vect(indxs_tmp);
     %vals_to_cut_off./reshape(repmat(vecnorm(reshape(vals_to_cut_off,2,[])),2,1),1,[])
     vect(indxs_tmp)=v_max*(vals_to_cut_off./reshape(repmat(vecnorm(reshape(vals_to_cut_off,2,[])),2,1),1,[]));
