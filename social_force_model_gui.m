@@ -251,6 +251,8 @@ end
     end
     if run_as_movie_logical==0
         close(d2);
+    elseif run_as_movie_logical==1
+        delete(plot_tmp)
     end
 end
 

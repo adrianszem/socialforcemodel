@@ -39,8 +39,9 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
     k=100;
     kappa=100;
 
-    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,ax);
-
+    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,uiax);
+    
+    %in the case, when we run a movie, after its done, we still want to see it:
     sim_graph_objects=simple_plot(y,step_size,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical);
     
     %movie_plot(y,t,num_of_ppl)
@@ -85,6 +86,8 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         
         if run_as_movie_logical==0
             close(d2);
+        elseif run_as_movie_logical==1
+            delete(plot_tmp)
         end
     end
     
