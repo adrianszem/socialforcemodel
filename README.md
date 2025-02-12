@@ -1,0 +1,1 @@
+Run socforce_make_room_gui.m. This Runs nosym_social_force_model_gui.m (which is the same as social_force_model_gui.m but with symbolic matlab function making i.e. very slow). To just run the code, one can also run nosym_social_force_model.m
