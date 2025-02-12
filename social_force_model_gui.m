@@ -141,7 +141,7 @@ end
 toc
 
 %convert symbolic function to function handle
-f_norm=matlabFunction(X_norm,"Vars",{X});% for the cutoff function
+%f_norm=matlabFunction(X_norm,"Vars",{X});% for the cutoff function
 f_vect_soc=matlabFunction(f_soc,"Vars",{[X,V]});%{} instead of [] to have the inpts as arrays
 f_x=matlabFunction(V,"Vars", {V});% id fnc
 f_wall_vect=matlabFunction(f_w,"Vars",{[X,V,B]});
@@ -157,7 +157,7 @@ close(d1)
 
 %plot_vector_field_one_person(-6,-6,6,6,0.5,F_goal)
 
-[y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,f_norm,v_max,v_0,room,run_as_movie_logical,fig,uiax);
+[y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],f_x,f_vect_dir,f_vect_soc,f_wall_vect,v_max,v_0,room,run_as_movie_logical,fig,uiax);
 
 %in the case, when we run a movie, after its done, we still want to see it:
 sim_graph_objects=simple_plot(y,step_size,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical);
@@ -185,9 +185,11 @@ end
 %numerical methods:
 %we will need to define 'f'
 
-    function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,f_norm,v_max,v_0,room,run_as_movie_logical,fig,ax)
+    function [y,forces_k]=exp_euler_cont_wall(N,h,init,f_x,f_v_dir,f_v_soc,f_v_wall,v_max,v_0,room,run_as_movie_logical,fig,ax)
        if run_as_movie_logical==0
             d2 = uiprogressdlg(fig,'Title','Please Wait','Message','Simulating');
+       elseif run_as_movie_logical==1
+            plot_tmp=plot(uiax,[],[]);
        end
 
     num_of_ppl=length(init)/4;
@@ -195,7 +197,7 @@ end
     %save forces
     %forces=zeros(N,length(init)/2,3);
     forces_k=zeros(N,length(init)/2,3);
-    plot_tmp=plot(uiax,[],[]);
+    
     y(1,:)=init;
 
     for j=1:N-1
@@ -233,7 +235,7 @@ end
         forces_k(j,:,1)=h*f_v_dir(y(j,:));
         forces_k(j,:,2)=h*f_v_soc(y(j,:));
         forces_k(j,:,3)=h*f_v_wall([y(j,:),min_wall_coords]);
-        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),f_norm,v_max,v_0),sum(forces_k(j,:,:),3)];
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(f_x(y(j,2*num_of_ppl+1:end)),v_max,v_0),sum(forces_k(j,:,:),3)];
         %f_x(y(j,2*num_of_ppl+1:end))
         if mod(j,30)==0 && run_as_movie_logical==1
             pause(0.001)
@@ -249,12 +251,18 @@ end
     end
     if run_as_movie_logical==0
         close(d2);
+    elseif run_as_movie_logical==1
+        delete(plot_tmp)
     end
 end
 
 
-function vect=cutoff_fnc(vect,f_norm,v_max,v_0)%cannot be implemented by symbolic fnc...
-    indxs_tmp=f_norm(vect)>=v_max;
+function vect=cutoff_fnc(vect,v_max,v_0)%cannot be implemented by symbolic fnc...
+    vect_norm=zeros(1,size(vect,2));
+    vect_norm(1:2:end)=sqrt(vect(1:2:end).^2+vect(2:2:end).^2);
+    vect_norm(2:2:end)=vect_norm(1:2:end);
+    indxs_tmp=(vect_norm>=v_max);
+    %indxs_tmp=f_norm(vect)>=v_max;
     vals_to_cut_off=vect(indxs_tmp);
     %vals_to_cut_off./reshape(repmat(vecnorm(reshape(vals_to_cut_off,2,[])),2,1),1,[])
     vect(indxs_tmp)=v_max*(vals_to_cut_off./reshape(repmat(vecnorm(reshape(vals_to_cut_off,2,[])),2,1),1,[]));
