@@ -14,7 +14,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
     room.lengths=vecnorm(room.u_s,2,2);
     
     t_0=0;
-    t_max=10;
+    t_max=20;
     step_size=1/200;
     t=t_0:step_size:t_max;
     num_of_time_grid=length(t);
@@ -77,8 +77,8 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
                 delete(plot_tmp)
                 plot_tmp(1)=plot(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),'o',"MarkerSize",8,'MarkerFaceColor','b');
                 plot_tmp(2)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),y(j+1,2*num_of_ppl+1:2:end),y(j+1,2*num_of_ppl+2:2:end),'Color','m','LineWidth',1.6,'AutoScale','off');
-                plot_tmp(3)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,3),1/h*forces_k(j,2:2:end,3),'Color','g','LineWidth',1.6,'AutoScale','off');
-                plot_tmp(4)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,2),1/h*forces_k(j,2:2:end,2),'Color','r','LineWidth',1.6,'AutoScale','off');
+                %plot_tmp(3)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,3),1/h*forces_k(j,2:2:end,3),'Color','g','LineWidth',1.6,'AutoScale','off');
+                %plot_tmp(4)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,2),1/h*forces_k(j,2:2:end,2),'Color','r','LineWidth',1.6,'AutoScale','off');
             elseif mod(j,200)==0 && run_as_movie_logical==0
                 d2.Value = j/(N-1); 
             end
@@ -116,8 +116,25 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         V_norm(1:2:num_of_coords)=sqrt(V(1:2:num_of_coords).^2+V(2:2:num_of_coords).^2);
         V_norm(2:2:num_of_coords)=V_norm(1:2:num_of_coords);
         
-        %f_dir=1/tau*((ppl_goal-X)./X_norm*v_0-V);%dir force
-        forces_one_time(:,1)=1/tau*((ppl_goal-X)./X_norm*v_0-V);%dir force
+        forces_at_goal=0;
+        goal_dist_cutoff_val=1;
+
+        if forces_at_goal==1
+            not_at_goal=true(size(X_tmp));
+            not_at_goal_double=true(1,2*num_of_ppl);
+        else
+            not_at_goal=X_tmp>goal_dist_cutoff_val;
+            not_at_goal_double=true(1,2*num_of_ppl);
+            not_at_goal_double(1:2:2*num_of_ppl)=not_at_goal;
+            not_at_goal_double(2:2:2*num_of_ppl)=not_at_goal;
+        end
+        
+
+        num_of_ppl=num_of_coords/2;
+        indices_tmp=1:num_of_ppl;
+        f_dir=zeros(1,num_of_coords);
+        f_dir(not_at_goal_double)=1/tau*((ppl_goal(not_at_goal_double)-X(not_at_goal_double))./X_norm(not_at_goal_double)*v_0-V(not_at_goal_double));%dir force
+        forces_one_time(:,1)=f_dir;%dir force
     
         %wall force making:
         d_ib=zeros(1,num_of_coords);
@@ -140,48 +157,49 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         %it separately:
         %f_k=zeros(1,2*num_of_ppl);%body force
         f_soc=zeros(1,num_of_coords);%soc frce
-    
-        num_of_ppl=num_of_coords/2;
-        for p1=1:num_of_ppl%indices_tmp(not_at_goal)%1:num_of_ppl 
-        x_p1=X(2*p1+[-1,0]);%coords of the used person
-        b_p1=B(2*p1+[-1,0]);%coords of the used persons closes wall
-        %v_p1=V(2*p1+[-1,0]);
-        v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
-        %coords of all the other person, dim: 1 x 2*(num_of_ppl-1)
-        X_others=X(reshape(2*cat(2,1:p1-1,p1+1:num_of_ppl)+[-1,0]',1,2*(num_of_ppl-1)));
-        %vectors from all the other people pointing to the now checked person
-        X_ij=repmat(x_p1,1,(num_of_ppl-1))-X_others;
-        %d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
-        %norms of the above, doubled
-        d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
-        %normed vectors from all the other people pointing to the now checked person
-        n_ij=X_ij./d_ij_double;
-        %{
-        %wall force making:
-        d_ib=sqrt(sum((x_p1-b_p1).^2));
-        %normed vector from now checked person to its closest wall coords
-        %LATER PUT THIS OUTSIDE OF THE FOR CYCLE
-        n_ib=(x_p1-b_p1)/d_ib;
-        %angle dependency part (between the wall and the direction of the movement of the person)
-        angles_ib=sum(-n_ib.*(V(2*p1+[-1,0])./sqrt(sum((V(2*p1+[-1,0])).^2))));
-        lambda_part_wall=lambda_i+(1-lambda_i)*1/2*(1+angles_ib);
-        %wall force
-        f_wall_of_p1=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
-        %}
-        %soc force making:
-        %angle dependency part (between the person and others)
-        angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
-        lambda_part_soc=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
-        f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part_soc;
-        %f_w(2*p1+[-1,0])=f_wall_of_p1;
-        
-        %body forces
-        f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
-        %if we dont want to add the body forces to the soc model but work with
-        %it separately:
-        %f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
-        %soc force
-        f_soc(2*p1+[-1,0])=f_soc(2*p1+[-1,0])+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+
+        for p1=indices_tmp(not_at_goal)%1:num_of_ppl 
+            x_p1=X(2*p1+[-1,0]);%coords of the used person
+            %b_p1=B(2*p1+[-1,0]);%coords of the used persons closes wall
+            %v_p1=V(2*p1+[-1,0]);
+            v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
+            %coords of all the other person, dim: 1 x 2*(num_of_ppl-1)
+            X_others=X(reshape(2*cat(2,1:p1-1,p1+1:num_of_ppl)+[-1,0]',1,2*(num_of_ppl-1)));
+            %vectors from all the other people pointing to the now checked person
+            X_ij=repmat(x_p1,1,(num_of_ppl-1))-X_others;
+            %d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
+            %norms of the above, doubled
+            d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
+            %normed vectors from all the other people pointing to the now checked person
+            n_ij=X_ij./d_ij_double;
+            %{
+            %wall force making:
+            d_ib=sqrt(sum((x_p1-b_p1).^2));
+            %normed vector from now checked person to its closest wall coords
+            %LATER PUT THIS OUTSIDE OF THE FOR CYCLE
+            n_ib=(x_p1-b_p1)/d_ib;
+            %angle dependency part (between the wall and the direction of the movement of the person)
+            angles_ib=sum(-n_ib.*(V(2*p1+[-1,0])./sqrt(sum((V(2*p1+[-1,0])).^2))));
+            lambda_part_wall=lambda_i+(1-lambda_i)*1/2*(1+angles_ib);
+            %wall force
+            f_wall_of_p1=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
+            %}
+            %soc force making:
+            %angle dependency part (between the person and others)
+            angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
+            lambda_part_soc=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
+            f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part_soc;
+            f_ppl_of_p1(~not_at_goal_double)=0;
+            %f_w(2*p1+[-1,0])=f_wall_of_p1;
+            
+            %body forces
+            f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
+            f_k_part(~not_at_goal_double)=0;
+            %if we dont want to add the body forces to the soc model but work with
+            %it separately:
+            %f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+            %soc force
+            f_soc(2*p1+[-1,0])=f_soc(2*p1+[-1,0])+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
         end
     
         forces_one_time(:,2)=f_soc;
@@ -304,10 +322,10 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         %}
         %f_wall
         wall_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,3),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,3),[],1)];
-        sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),1/h*wall_force_tmp(:,1),1/h*wall_force_tmp(:,2),'Color','g','LineWidth',1.6,'AutoScale','off');
+        sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),1/h*wall_force_tmp(:,1),1/h*wall_force_tmp(:,2),'Color','g','LineWidth',1.6,'AutoScaleFactor',0.2);
         %f_soc
         soc_force_tmp=[reshape(forces(1:plot_step:end,1:2:size(y,2)/2,2),[],1),reshape(forces(1:plot_step:end,2:2:size(y,2)/2,2),[],1)];
-        sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),1/h*soc_force_tmp(:,1),1/h*soc_force_tmp(:,2),'Color','r','LineWidth',1.6,'AutoScale','off');
+        sim_graph_objects(end+1)=quiver(ax,y_tmp(:,1),y_tmp(:,2),1/h*soc_force_tmp(:,1),1/h*soc_force_tmp(:,2),'Color','r','LineWidth',1.6,'AutoScaleFactor',0.2);
     
         %plot goals 
         sim_graph_objects(end+1)=plot(ax,ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);

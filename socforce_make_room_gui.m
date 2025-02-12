@@ -664,10 +664,15 @@ function runSim(src,event,uiax,fig,run_as_movie_logical)
         uialert(fig,"The data can not be simulated, since it is empty","no values to run")
         return;
     end
+    delete(data.ppl_graph_objects)
+    data.ppl_graph_objects=[];
+    guidata(fig,data);
     %similarly as in saveData
     room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val','sim_graph_objects'});
     newfigure_logical=0;
     delSim(src,event);
+
+    %data.sim_graph_objects=social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical,run_as_movie_logical);
     data.sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical,run_as_movie_logical);
     guidata(src,data);
 end
