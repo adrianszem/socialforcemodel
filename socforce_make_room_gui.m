@@ -1,8 +1,3 @@
-clear all
-close all
-clc
-
-
 
 fig=uifigure("Name", "Make Room");
 

@@ -58,7 +58,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         end
 
 
-        r_ij=0.5;
+        r_ij=0.5;%
         num_of_ppl=length(init)/4;
         y=zeros(N,length(init));
         %save forces
@@ -77,8 +77,8 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
                 delete(plot_tmp)
                 plot_tmp(1)=plot(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),'o',"MarkerSize",8,'MarkerFaceColor','b');
                 plot_tmp(2)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),y(j+1,2*num_of_ppl+1:2:end),y(j+1,2*num_of_ppl+2:2:end),'Color','m','LineWidth',1.6,'AutoScale','off');
-                %plot_tmp(3)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,3),1/h*forces_k(j,2:2:end,3),'Color','g','LineWidth',1.6,'AutoScale','off');
-                %plot_tmp(4)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,2),1/h*forces_k(j,2:2:end,2),'Color','r','LineWidth',1.6,'AutoScale','off');
+                plot_tmp(3)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,3),1/h*forces_k(j,2:2:end,3),'Color','g','LineWidth',1.6,'AutoScale','off');
+                plot_tmp(4)=quiver(ax,y(j+1,1:2:2*num_of_ppl),y(j+1,2:2:2*num_of_ppl),1/h*forces_k(j,1:2:end,2),1/h*forces_k(j,2:2:end,2),'Color','r','LineWidth',1.6,'AutoScale','off');
             elseif mod(j,200)==0 && run_as_movie_logical==0
                 d2.Value = j/(N-1); 
             end
