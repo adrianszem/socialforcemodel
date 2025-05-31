@@ -108,7 +108,7 @@ m_save.MenuSelectedFcn = {@saveMenuSelected,fig};
 m_run.MenuSelectedFcn = {@runSim,uiax,fig,0};
 m_run_movie.MenuSelectedFcn={@runSim,uiax,fig,1};
 m_delete_config.MenuSelectedFcn={@delConfig,fig};
-m_delete_sim.MenuSelectedFcn={@delSim};
+m_delete_sim.MenuSelectedFcn={@delSim,uiax,fig};
 m_delete_all.MenuSelectedFcn={@delAll,fig};
 
 function mouseCallback(src, evnt,fig,person_button,wall_button,rect_button,marker_hit_helper_button,del_person_button,nmbr_of_rand_ppl)
@@ -475,11 +475,26 @@ function delConfig(src,event,fig)
     handle_init(fig);
 end
 
-function delSim(src,event)
+function delSim(src,event,uiax,fig)
     data=guidata(src);
     disp('ahaa')
     delete(data.sim_graph_objects);
     data.sim_graph_objects=[];
+    %delsim is also called before runSim (and in del all), but we only want to plot (again) the init
+    %values when we specifically press on the delete simulation button
+    if nargin==4
+        for ind_ppl=1:2:size(data.person_coords,2)
+            person_indices=ind_ppl+[0,1];
+            data.ppl_graph_objects(end+1,1)=plot(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),'*k','ButtonDownFcn',{@MouseClickPerson,fig});
+            data.ppl_graph_objects(end,3)=appviscircles(uiax,data.person_coords(person_indices),0.25,'Color',"red");
+            data.ppl_graph_objects(end,4)=quiver(uiax,data.person_coords(person_indices(1)),data.person_coords(person_indices(2)),data.vel_coords(person_indices(1)),data.vel_coords(person_indices(2)),'Color','g','LineWidth',1.6,'HitTest','off');
+            %later, i will probably shouldn't make a new marker for a goal, if that
+            %goal already exists
+            data.ppl_graph_objects(end,2)=plot(uiax,data.goal_coords(person_indices(1)),data.goal_coords(person_indices(2)),'*b',"MarkerSize",10,'Tag',num2str(data.wall_tagger_ind),'ButtonDownFcn',{@MouseClickGoal,fig});
+            data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
+        end
+    end
+    %}
     guidata(src,data);
 end
 

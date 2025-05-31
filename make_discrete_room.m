@@ -2,7 +2,7 @@
 %room is [-10,10,-10,10]
 h=0.1; %resolution
 
-xx=-10:h:10;
+xx=0:h:10;
 yy=xx;%%(1:2:end);
 [X,Y]=meshgrid(xx,yy);
 wall_map=zeros(size(X,1)-2,size(X,2)-2);
@@ -16,13 +16,13 @@ lin_indexes=reshape(lin_indexes,size(X,1),size(X,2));
 wall_indexes=lin_indexes((wall_map.*lin_indexes)>0);
 room.wall_map=wall_map;
 room.wall_indexes=wall_indexes;
-room.X_coords=X;
-room.Y_coords=Y;
+room.X_coords=X(1,:);%X
+room.Y_coords=Y(:,1)';%Y;
 room.wall_X=X(wall_indexes);
 room.wall_Y=Y(wall_indexes);
 room.wall_coords=[X(wall_indexes),Y(wall_indexes)];
 room.resolution=h;%redundant 
-%save('room_for_soc_forc_mod.mat',"room");
+save('room_for_soc_forc_mod_0_10.mat',"room");
 %we will need this later
 %closest wall point from coord
 coord=[1,1];
