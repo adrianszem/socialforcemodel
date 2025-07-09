@@ -1,5 +1,4 @@
 clear all
-clc
 path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching');
 path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching/toolbox');
 
@@ -21,11 +20,10 @@ if disc_wall==1
     %}
 else %cont wall, should be same as the discrete for the eikonal
     %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
-    max_room_val=10;
-    room.walls=[0,max_room_val,max_room_val,max_room_val;...%x_startp,y_startp,x_endp,y_endp
-    max_room_val,max_room_val,max_room_val,0;...
-    0,0,0,max_room_val;...
-    max_room_val,0,0,0];
+    room.walls=[0,10,10,10;...%x_startp,y_startp,x_endp,y_endp
+    10,10,10,0;...
+    0,0,0,10;...
+    10,0,0,0];
     room.walls_init=room.walls(:,1:2);
     room.walls_end=room.walls(:,3:4);
     
@@ -38,8 +36,8 @@ else %cont wall, should be same as the discrete for the eikonal
     room.n_s(:,2:2:end)=room.u_s(:,1:2:end);
 end
 
-num_of_ppl=20;
-init_pos=randi([10,max_room_val*10-10],1,2*num_of_ppl)/10;%[randi([2,38],1,2*num_of_ppl)];%[1,0,1,0,randi([2,15],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
+num_of_ppl=6;
+init_pos=randi([1,9],1,2*num_of_ppl);%[randi([2,38],1,2*num_of_ppl)];%[1,0,1,0,randi([2,15],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
 init_vel=[0,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
 save_tf=1;
 
@@ -47,39 +45,23 @@ for ind1=1:2:2*num_of_ppl
     ppl_tmp=init_pos(ind1+[0,1]);
     for ind2=ind1+2:2*(num_of_ppl-1)
         if sum(ppl_tmp==init_pos(ind2+[0,1]))==2
-           init_pos(ind1+[0,1])=randi([10,max_room_val*10-10],1,2)/10;
+           init_pos(ind1+[0,1])=randi([1,9],1,2);
         end
     end
 end
 
 
-for ind1=1:2:2*num_of_ppl 
-    ppl_tmp=init_pos(ind1+[0,1]);
-    for ind2=ind1+2:2*(num_of_ppl-1)
-        if sum(ppl_tmp==init_pos(ind2+[0,1]))==2
-           warning('two person has the same init coords');
-        end
-    end
+which_goal=[1,2,2,1,1,2];%,1,1,2];
+num_of_goals=max(which_goal);
+goals{1}=[1,7;...%2,10,38,38,27;...
+       1,7];%1,38,38,3,39];
+goals{2}=[9;...
+          9];
+clear options;
+options.nb_iter_max = Inf;
+for ind1=1:num_of_goals
+    [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
 end
-
-if eikonal==0
-    goals=[4,2,randi([1,9],1,2*(num_of_ppl-1))];%[1,1,1,1];%[-1,1,1,1];%randi([0,10],1,2*num_of_ppl);
-elseif eikonal==1
-    which_goal=randi([1,2],1,num_of_ppl);%ones(1,num_of_ppl);%[1,2,2,1,1,2];%,1,1,2];
-    num_of_goals=max(which_goal);
-    goals{1}=[1,7;...%2,10,38,38,27;...
-           1,7];%1,38,38,3,39];
-    goals{2}=[9;...
-              9];
-    clear options;
-    options.nb_iter_max = Inf;
-    for ind1=1:num_of_goals
-        [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
-    end
-end
-
-%figure;imagesc(Dist_fncs{1});hold on; plot((1/room.resolution)*goals{1}(1,:),(1/room.resolution)*goals{1}(2,:),'*','MarkerSize',15)
-
 %}
 %{
 load('test_ppl_362206_socforcmodel.mat')
@@ -95,7 +77,7 @@ save_tf=0;
 
 t_0=0;
 t_max=20;
-step_size=1/250;
+step_size=1/200;
 t=t_0:step_size:t_max;
 num_of_time_grid=length(t);
 
@@ -121,21 +103,12 @@ kappa=100;
 
 tic
 if disc_wall==1
-    if eikonal==1
     [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
     simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
-    else
-    [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal);
-    simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal)
-    end
+    
 else
-    if eikonal==1
     [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
     simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
-    else
-        [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal);
-        simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal)
-    end
 end
 toc
 
@@ -165,20 +138,11 @@ function [y,forces_k]=exp_euler_discrete_wall(N,h,init,ppl_goal,v_max,v_0,room,e
 
     y(1,:)=init;
     
-    if eikonal==1
-        for j=1:N-1 %timesteps
-            B=find_closest_disc_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
-            forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal,room,Dist_fncs,which_goal);
-            %forces_k(j,:,:)=f1(j,:,:);
-            y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
-        end
-    else
-        for j=1:N-1 %timesteps
-            B=find_closest_disc_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
-            forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal);
-            %forces_k(j,:,:)=f1(j,:,:);
-            y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
-        end
+    for j=1:N-1 %timesteps
+        B=find_closest_disc_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
+        forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal,room,Dist_fncs,which_goal);
+        %forces_k(j,:,:)=f1(j,:,:);
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
     end
 
 end
@@ -191,20 +155,11 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,ppl_goal,v_max,v_0,room,eikon
     
     y(1,:)=init;
        
-    if eikonal==1
-        for j=1:N-1
-            B=find_closest_cont_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
-            forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal,room,Dist_fncs,which_goal);
-            %forces_k(j,:,:)=f1(j,:,:);
-            y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
-        end
-    else
-        for j=1:N-1
-            B=find_closest_cont_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
-            forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal);
-            %forces_k(j,:,:)=f1(j,:,:);
-            y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
-        end
+    for j=1:N-1
+        B=find_closest_cont_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
+        forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal,room,Dist_fncs,which_goal);
+        %forces_k(j,:,:)=f1(j,:,:);
+        y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
     end
 
 end
@@ -230,20 +185,23 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     
     X_tmp=zeros(1,num_of_ppl);
 
-    if eikonal==1
-        res=room.resolution;
-        if more_than_one==0
-            ppl_goal=reshape(cell2mat(goals(which_goal)),1,num_of_coords);
-            X_tmp=sqrt((X(1:2:num_of_coords)-ppl_goal(1:2:num_of_coords)).^2+(X(2:2:num_of_coords)-ppl_goal(2:2:num_of_coords)).^2);
-        else
-            for ind1=1:num_of_ppl
-                %goals{which_goal}
-                [minval_X,min_ind_X]=min(sqrt(sum((X(2*ind1-1:2*ind1)'-goals{which_goal(ind1)}).^2)));
-                X_tmp(ind1)=minval_X;
-            end
-        end
+    kartz_s=2;
+
+    g=1;
+    h=1;
+
+    res=room.resolution;
+
+    X_tmp=zeros(1,num_of_ppl);
+    if more_than_one==0
+        ppl_goal=reshape(cell2mat(goals(which_goal)),1,num_of_coords);
+        X_tmp=sqrt((X(1:2:num_of_coords)-ppl_goal(1:2:num_of_coords)).^2+(X(2:2:num_of_coords)-ppl_goal(2:2:num_of_coords)).^2);
     else
-        ppl_goal=goals;
+        for ind1=1:num_of_ppl
+            %goals{which_goal}
+            [minval_X,min_ind_X]=min(sqrt(sum((X(2*ind1-1:2*ind1)'-goals{which_goal(ind1)}).^2)));
+            X_tmp(ind1)=minval_X;
+        end
     end
 
     forces_one_time=zeros(num_of_coords,3);
@@ -257,18 +215,13 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     X_norm(2:2:num_of_coords)=X_tmp;
     
     
-    V_norm=zeros(1,num_of_coords);
-    V_norm(1:2:num_of_coords)=sqrt(V(1:2:num_of_coords).^2+V(2:2:num_of_coords).^2);
-    V_norm(2:2:num_of_coords)=V_norm(1:2:num_of_coords);
+    V_norm_double=zeros(1,num_of_coords);
+    V_norm=sqrt(V(1:2:num_of_coords).^2+V(2:2:num_of_coords).^2);
+    V_norm_double(1:2:num_of_coords)=V_norm;
+    V_norm_double(2:2:num_of_coords)=V_norm;
 
-    %{
-    %round x 
-    X_r=res*round(1/res*X);
-    max_val=10-res;
-    min_val=0+res;
-    X_r = max(min(rounded_x, max_val), min_val);
-    %}
-
+    %room.X_coords(round((1/res)*X_r)+1)
+    
     forces_at_goal=0;
     goal_dist_cutoff_val=0.5;
 
@@ -286,7 +239,7 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     
     f_dir=zeros(1,num_of_coords);
     
-    if eikonal==1
+    if kartz_s==0 % equiv 1
         for ind1=1:max(which_goal)
             ppl_mask=zeros(1,num_of_coords);
             ppl_mask(1:2:num_of_coords)= not_at_goal &(which_goal==ind1);
@@ -298,11 +251,102 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
                 %%%%%%%%%
                 f_dir(logical(ppl_mask))=1/tau*(reshape(ip,1,[])*v_0-V(logical(ppl_mask)));%dir force
             end
-    
         end
-    else
-        f_dir(not_at_goal_double)=1/tau*((ppl_goal(not_at_goal_double)-X(not_at_goal_double))./X_norm(not_at_goal_double)*v_0-V(not_at_goal_double));%dir force
+    elseif kartz_s==1 % where a person is, the eikonal eqn inherits the speed (doesnt look out for different goals
+
+        X_r=res*round(1/res*X);
+        max_val=10-res;
+        min_val=0+res;
+        X_r = max(min(X_r, max_val), min_val);
+        ind_tmp=reshape(round((1/res)*X_r)+1,2,num_of_ppl);
+
+        %makm=
+
+        for_room_dist_fnc=double(~room.wall_map); %eikonal with one and walls lhs, we change where there are ppl:
+        for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,:),ind_tmp(2,:)))=1./V_norm; % where a person is, the eikonal eqn inherits the speed
+        %for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,:),ind_tmp(2,:)))=max(1,1./V_norm);%
+        %where a person is, the eikonal eqn inherits the speed but only can
+        %make one slower there
+
+        clear options;
+        options.nb_iter_max = Inf;
+        [Dist_fncs_1,~] = perform_fast_marching(double(for_room_dist_fnc), (1/room.resolution)*cell2mat(goals), options);
+        
+        ip = compute_geodesic_modified(Dist_fncs_1, (1/res)*reshape(X(not_at_goal_double),2,[]),res);
+        ip=ip./vecnorm(ip);
+        %%%%%%%%%
+        f_dir(not_at_goal_double)=1/tau*(reshape(ip,1,[])*v_0-V(not_at_goal_double));%dir force
+
+    elseif kartz_s==2 % where a person is, the eikonal eqn inherits the speed (doesnt look out for different goals
+
+        X_r=res*round(1/res*X);
+        max_val=10-res;
+        min_val=0+res;
+        X_r = max(min(X_r, max_val), min_val);
+        ind_tmp=reshape(round((1/res)*X_r)+1,2,num_of_ppl);
+        for indt=1:max(which_goal)
+            for_room_dist_fnc=double(~room.wall_map); %eikonal with one and walls lhs, we change where there are ppl:
+
+            ppl_mask=not_at_goal &(which_goal==indt);
+            ppl_mask_double=zeros(1,num_of_coords);
+            ppl_mask_double(1:2:num_of_coords)= ppl_mask;
+            ppl_mask_double(2:2:end)=ppl_mask;
+            if sum(ppl_mask)~=0
+
+                for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,ppl_mask),ind_tmp(2,ppl_mask)))=1./V_norm(ppl_mask); % where a person is, the eikonal eqn inherits the speed
+                %for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,ppl_mask),ind_tmp(2,ppl_mask)))=max(1,1./V_norm(ppl_mask));%
+                %where a person is, the eikonal eqn inherits the speed but only can
+                %make one slower there
+                clear options;
+                options.nb_iter_max = Inf;
+                [Dist_fncs_1,~] = perform_fast_marching(double(for_room_dist_fnc), (1/room.resolution)*goals{indt}, options);
+                %for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,:),ind_tmp(2,:)))=1./V_norm;
+            
+                ip = compute_geodesic_modified(Dist_fncs_1, (1/res)*reshape(X(logical(ppl_mask_double)),2,[]),res);
+                %%%%%%%%%
+                ip=ip./vecnorm(ip);
+                %%%%%%%%%
+                f_dir(logical(ppl_mask_double))=1/tau*(reshape(ip,1,[])*v_0-V(logical(ppl_mask_double)));%dir force
+            end
+        end
+    elseif kartz_s==3 % what is in the paper from kartz (looks out for different goals
+
+        X_r=res*round(1/res*X);
+        max_val=10-res;
+        min_val=0+res;
+        X_r = max(min(X_r, max_val), min_val);
+        ind_tmp=reshape(round((1/res)*X_r)+1,2,num_of_ppl);
+        for indt=1:max(which_goal)
+            for_room_dist_fnc=double(~room.wall_map); %eikonal with one and walls lhs, we change where there are ppl:
+
+            ppl_mask=not_at_goal &(which_goal==indt);
+            ppl_mask_double=zeros(1,num_of_coords);
+            ppl_mask_double(1:2:num_of_coords)= ppl_mask;
+            ppl_mask_double(2:2:end)=ppl_mask;
+            if sum(ppl_mask)~=0
+                ip = compute_geodesic_modified(Dist_fncs{indt}, (1/res)*reshape(X(logical(ppl_mask_double)),2,[]),res);
+                %%%%%%%%%
+                ip=ip./vecnorm(ip);
+        
+                for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,ppl_mask),ind_tmp(2,ppl_mask)))=1+max(0,g*(1+(h/v_0)*(V(ppl_mask_double)*ip'))); % where a person is, the eikonal eqn inherits the speed
+                %for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,ppl_mask),ind_tmp(2,ppl_mask)))=max(1,1./V_norm(ppl_mask));%
+                %where a person is, the eikonal eqn inherits the speed but only can
+                %make one slower there
+                clear options;
+                options.nb_iter_max = Inf;
+                [Dist_fncs_new,~] = perform_fast_marching(double(for_room_dist_fnc), (1/room.resolution)*goals{indt}, options);
+                %for_room_dist_fnc(sub2ind(size(for_room_dist_fnc),ind_tmp(1,:),ind_tmp(2,:)))=1./V_norm;
+            
+                ip = compute_geodesic_modified(Dist_fncs_new, (1/res)*reshape(X(logical(ppl_mask_double)),2,[]),res);
+                %%%%%%%%%
+                ip=ip./vecnorm(ip);
+                %%%%%%%%%
+                f_dir(logical(ppl_mask_double))=1/tau*(reshape(ip,1,[])*v_0-V(logical(ppl_mask_double)));%dir force
+            end
+        end
     end
+
+    
     forces_one_time(:,1)=f_dir;%dir force
     
     %
@@ -313,7 +357,7 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     %normed vector from now checked person to its closest wall coords
     n_ib=(X-B)./d_ib;
     %angle dependency part (between the wall and the direction of the movement of the person)
-    angles_all_tmp=-n_ib.*(V./V_norm);
+    angles_all_tmp=-n_ib.*(V./V_norm_double);
     angles_ib_all=angles_all_tmp(1:2:num_of_coords)+angles_all_tmp(2:2:num_of_coords);%dotprods
     lambda_part_wall=zeros(1,num_of_coords);
     lambda_part_wall(1:2:num_of_coords)=lambda_i+(1-lambda_i)*1/2*(1+angles_ib_all);
@@ -565,24 +609,18 @@ function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall,eikonal,wh
     %}
     %imagesc([room.wall_map]')
     %plot circles
-    plot_step=100;
+    plot_step=50;
    
     y_tmp=[reshape(y(1:plot_step:end,1:2:size(y,2)/2),[],1),reshape(y(1:plot_step:end,2:2:size(y,2)/2),[],1)];
 
-    if eikonal==1
-        which_goal_double(1:2:2*num_of_ppl)=which_goal;
-        which_goal_double(2:2:2*num_of_ppl)=which_goal;
-        for ind1=1:max(which_goal)
-            l=find(which_goal==ind1);
-            y_tmp_goal=[reshape(y(1:plot_step:end,l*2-1),[],1),reshape(y(1:plot_step:end,l*2),[],1)];
-            viscircles(y_tmp_goal,r_ij/2*ones(1,size(y_tmp_goal,1)),'Color',rand(1,3));
-        end
-    else
-        plot(ppl_goal(1:2:2*num_of_ppl),ppl_goal(2:2:2*num_of_ppl),'s','MarkerSize',5,'MarkerEdgeColor','red','MarkerFaceColor',[1 .6 .6]);
-        viscircles(y_tmp,r_ij/2*ones(1,size(y_tmp,1)),'Color','m');
-
+    which_goal_double(1:2:2*num_of_ppl)=which_goal;
+    which_goal_double(2:2:2*num_of_ppl)=which_goal;
+    for ind1=1:max(which_goal)
+        l=find(which_goal==ind1);
+        y_tmp_goal=[reshape(y(1:plot_step:end,l*2-1),[],1),reshape(y(1:plot_step:end,l*2),[],1)];
+        viscircles(y_tmp_goal,r_ij/2*ones(1,size(y_tmp_goal,1)),'Color',rand(1,3));
     end
-
+    
     %plot acceleration vectors
     %{
     y_vel_tmp=[reshape(y(1:50:end,size(y,2)/2+1:2:size(y,2)),[],1),reshape(y(1:50:end,size(y,2)/2+2:2:size(y,2)),[],1)];

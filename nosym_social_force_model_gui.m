@@ -68,6 +68,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
     
         for j=1:N-1
             B=find_closest_cont_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
+            
             forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B);
             %forces_k(j,:,:)=f1(j,:,:);
             y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff

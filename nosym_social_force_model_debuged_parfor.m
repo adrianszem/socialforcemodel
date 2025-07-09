@@ -7,9 +7,16 @@ disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretize
 %no bresenams algorithm
 eikonal=1;
 
-load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
+
 
 if disc_wall==1
+    %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
+    max_room_val=30;
+    room.resolution=0.1;
+
+    room=make_dicrete_room_fnc(max_room_val,room.resolution);
+    room.max_room_val=max_room_val;
+    %room_d=room;
     %{
     A=ones(40);
     A([2,39],2:39)=0;
@@ -21,7 +28,11 @@ if disc_wall==1
     %}
 else %cont wall, should be same as the discrete for the eikonal
     %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
-    max_room_val=10;
+    max_room_val=30;
+    room.resolution=0.1;
+
+    room=make_dicrete_room_fnc(max_room_val,room.resolution);
+    room.max_room_val=max_room_val;
     room.walls=[0,max_room_val,max_room_val,max_room_val;...%x_startp,y_startp,x_endp,y_endp
     max_room_val,max_room_val,max_room_val,0;...
     0,0,0,max_room_val;...
@@ -36,12 +47,15 @@ else %cont wall, should be same as the discrete for the eikonal
     room.n_s=zeros(size(room.u_s));
     room.n_s(:,1:2:end)=-room.u_s(:,2:2:end);
     room.n_s(:,2:2:end)=room.u_s(:,1:2:end);
+
+    %for the eikonal:
 end
 
-num_of_ppl=20;
+%{
+num_of_ppl=60;
 init_pos=randi([10,max_room_val*10-10],1,2*num_of_ppl)/10;%[randi([2,38],1,2*num_of_ppl)];%[1,0,1,0,randi([2,15],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
-init_vel=[0,-1,randi([0,10],1,2*(num_of_ppl-1))];%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
-save_tf=1;
+init_vel=randi([0,10],1,2*(num_of_ppl));%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
+save_tf=2;
 
 for ind1=1:2:2*num_of_ppl 
     ppl_tmp=init_pos(ind1+[0,1]);
@@ -51,7 +65,6 @@ for ind1=1:2:2*num_of_ppl
         end
     end
 end
-
 
 for ind1=1:2:2*num_of_ppl 
     ppl_tmp=init_pos(ind1+[0,1]);
@@ -67,8 +80,8 @@ if eikonal==0
 elseif eikonal==1
     which_goal=randi([1,2],1,num_of_ppl);%ones(1,num_of_ppl);%[1,2,2,1,1,2];%,1,1,2];
     num_of_goals=max(which_goal);
-    goals{1}=[1,7;...%2,10,38,38,27;...
-           1,7];%1,38,38,3,39];
+    goals{1}=[20,7;...%2,10,38,38,27;...
+           20,7];%1,38,38,3,39];
     goals{2}=[9;...
               9];
     clear options;
@@ -76,11 +89,34 @@ elseif eikonal==1
     for ind1=1:num_of_goals
         [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
     end
+    %plot_dist_fncs(Dist_fncs,goals,room.resolution,max_room_val);
 end
+%}
 
 %figure;imagesc(Dist_fncs{1});hold on; plot((1/room.resolution)*goals{1}(1,:),(1/room.resolution)*goals{1}(2,:),'*','MarkerSize',15)
 
 %}
+
+%
+load('test_ppl_159048_socforcmodel_eik.mat')
+disc_wall=0;
+num_of_ppl=onerun.num_of_ppl;
+
+init_pos=onerun.init_pos;
+init_vel=onerun.init_vel;
+which_goal=onerun.which_goal;
+num_of_goals=max(which_goal);
+goals=onerun.goals;
+
+clear options;
+options.nb_iter_max = Inf;
+for ind1=1:num_of_goals
+    [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
+end
+save_tf=0;
+%}
+
+
 %{
 load('test_ppl_362206_socforcmodel.mat')
 disc_wall=0;
@@ -94,7 +130,7 @@ save_tf=0;
 %}
 
 t_0=0;
-t_max=20;
+t_max=10;
 step_size=1/250;
 t=t_0:step_size:t_max;
 num_of_time_grid=length(t);
@@ -122,16 +158,16 @@ kappa=100;
 tic
 if disc_wall==1
     if eikonal==1
-    [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
-    simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
+        [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
+        simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
     else
-    [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal);
-    simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal)
+        [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal);
+        simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal)
     end
 else
     if eikonal==1
-    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
-    simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
+        [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
+        simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
     else
         [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal);
         simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal)
@@ -152,6 +188,18 @@ if save_tf==1
     onerun.num_of_ppl=num_of_ppl;
     rand_num=randi(1000000);
     file_name='test_ppl_'+string(rand_num)+'_socforcmodel.mat';
+    save(file_name,'onerun')
+    
+    disp(['initvals were saved as ', file_name])
+elseif save_tf==2
+    onerun.ppl_goal=goals;
+    onerun.init_pos=init_pos;
+    onerun.init_vel=init_vel;
+    onerun.num_of_ppl=num_of_ppl;
+    onerun.goals=goals;
+    onerun.which_goal=which_goal;
+    rand_num=randi(1000000);
+    file_name='test_ppl_'+string(rand_num)+'_socforcmodel_eik.mat';
     save(file_name,'onerun')
     
     disp(['initvals were saved as ', file_name])
@@ -223,10 +271,14 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     k=100;
     kappa=100;
 
+    %if sum(isnan(X))
+    %    1
+    %end
+
     num_of_coords=size(X,2);
     num_of_ppl=num_of_coords/2;
 
-    more_than_one=1;
+    more_than_one=1;%there can be more than one goal in 'goals'
     
     X_tmp=zeros(1,num_of_ppl);
 
@@ -238,12 +290,16 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
         else
             for ind1=1:num_of_ppl
                 %goals{which_goal}
-                [minval_X,min_ind_X]=min(sqrt(sum((X(2*ind1-1:2*ind1)'-goals{which_goal(ind1)}).^2)));
-                X_tmp(ind1)=minval_X;
+                %find the closest goal (can change dynamically), only
+                %to use it whether the person is close enought to the goal
+                X_tmp(ind1)=min(sqrt(sum((X(2*ind1-1:2*ind1)'-goals{which_goal(ind1)}).^2)));
+                %X_tmp(ind1)=minval_X;
+                %X
             end
         end
     else
         ppl_goal=goals;
+        X_tmp=sqrt((X(1:2:num_of_coords)-ppl_goal(1:2:num_of_coords)).^2+(X(2:2:num_of_coords)-ppl_goal(2:2:num_of_coords)).^2);
     end
 
     forces_one_time=zeros(num_of_coords,3);
@@ -253,6 +309,8 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     %{
     X_tmp=sqrt((X(1:2:num_of_coords)-ppl_goal(1:2:num_of_coords)).^2+(X(2:2:num_of_coords)-ppl_goal(2:2:num_of_coords)).^2);
     %}
+
+    X_norm=zeros(1,num_of_coords);
     X_norm(1:2:num_of_coords)=X_tmp;
     X_norm(2:2:num_of_coords)=X_tmp;
     
@@ -261,45 +319,79 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     V_norm(1:2:num_of_coords)=sqrt(V(1:2:num_of_coords).^2+V(2:2:num_of_coords).^2);
     V_norm(2:2:num_of_coords)=V_norm(1:2:num_of_coords);
 
-    %{
-    %round x 
-    X_r=res*round(1/res*X);
-    max_val=10-res;
-    min_val=0+res;
-    X_r = max(min(rounded_x, max_val), min_val);
-    %}
-
     forces_at_goal=0;
     goal_dist_cutoff_val=0.5;
 
-    indices_tmp=1:num_of_ppl;
-
     if forces_at_goal==1
         not_at_goal=true(size(X_tmp));
-        not_at_goal_double=true(1,2*num_of_ppl);
+        not_at_goal_double=true(1,num_of_coords);
     else
         not_at_goal=X_tmp>goal_dist_cutoff_val;
-        not_at_goal_double=true(1,2*num_of_ppl);
-        not_at_goal_double(1:2:2*num_of_ppl)=not_at_goal;
-        not_at_goal_double(2:2:2*num_of_ppl)=not_at_goal;
+        not_at_goal_double=true(1,num_of_coords);
+        not_at_goal_double(1:2:num_of_coords)=not_at_goal;
+        not_at_goal_double(2:2:num_of_coords)=not_at_goal;
     end
     
     f_dir=zeros(1,num_of_coords);
     
     if eikonal==1
+        %
+        f_dir=zeros(max(which_goal),num_of_coords);
+        ppl_mask=false(max(which_goal),num_of_coords);
+        ppl_mask(:,1:2:num_of_coords)= repmat(not_at_goal,[max(which_goal),1]) & which_goal==(1:max(which_goal))';
+        ppl_mask(:,2:2:end)=ppl_mask(:,1:2:num_of_coords);
+        sum_ppl_mask=sum(ppl_mask,2);
         for ind1=1:max(which_goal)
-            ppl_mask=zeros(1,num_of_coords);
-            ppl_mask(1:2:num_of_coords)= not_at_goal &(which_goal==ind1);
+            %ppl_mask=false(max(which_goal),num_of_coords);
+            %ppl_mask(:,1:2:num_of_coords)= repmat(not_at_goal,[max(which_goal),1]) & which_goal==(1:max(which_goal))';
+            %ppl_mask(:,2:2:end)=ppl_mask(:,1:2:num_of_coords);
+            
+            if sum_ppl_mask(ind1)
+                %ip = compute_geodesic_modified(Dist_fncs{ind1}, (1/res)*reshape(X(logical(ppl_mask)),2,num_of_ppl),res);
+                ip = compute_geodesic_modified_less_2_nosavegrad(Dist_fncs{ind1}, (1/res)*reshape(X(ppl_mask(ind1,:)),2,sum_ppl_mask(ind1)/2),res);
+                %%%%%%%%%
+             
+                %ip=ip./vecnorm(ip);
+                %if sum(sum(isnan(ip)))
+                %  1
+                %end
+                %%%%%%%%%
+                f_dir_tmp=zeros(1,num_of_coords);
+                f_dir_tmp(ppl_mask(ind1,:))=1/tau*(reshape(ip,1,sum_ppl_mask(ind1))*v_0-V(ppl_mask(ind1,:)));
+                f_dir(ind1,:)=f_dir_tmp;%dir force
+                %if sum(sum(isnan(f_dir(ppl_mask))))
+                %  1
+                %end
+            end
+        end
+        f_dir=sum(f_dir);
+        %}
+
+        %{
+        for ind1=1:max(which_goal)
+            ppl_mask=false(1,num_of_coords);
+            ppl_mask(1:2:num_of_coords)= not_at_goal & (which_goal==ind1);
             ppl_mask(2:2:end)=ppl_mask(1:2:num_of_coords);
-            if sum(ppl_mask)~=0
-                ip = compute_geodesic_modified(Dist_fncs{ind1}, (1/res)*reshape(X(logical(ppl_mask)),2,[]),res);
+            sum_ppl_mask=sum(ppl_mask);
+            if sum_ppl_mask
+                %ip = compute_geodesic_modified(Dist_fncs{ind1}, (1/res)*reshape(X(logical(ppl_mask)),2,num_of_ppl),res);
+                ip = compute_geodesic_modified_less_2(Dist_fncs{ind1}, (1/res)*reshape(X(ppl_mask),2,sum_ppl_mask/2),res);
                 %%%%%%%%%
+             
                 ip=ip./vecnorm(ip);
+                %if sum(sum(isnan(ip)))
+                %  1
+                %end
                 %%%%%%%%%
-                f_dir(logical(ppl_mask))=1/tau*(reshape(ip,1,[])*v_0-V(logical(ppl_mask)));%dir force
+                f_dir(ppl_mask)=1/tau*(reshape(ip,1,sum_ppl_mask)*v_0-V(ppl_mask));%dir force
+                %if sum(sum(isnan(f_dir(ppl_mask))))
+                %  1
+                %end
             end
     
         end
+        %}
+
     else
         f_dir(not_at_goal_double)=1/tau*((ppl_goal(not_at_goal_double)-X(not_at_goal_double))./X_norm(not_at_goal_double)*v_0-V(not_at_goal_double));%dir force
     end
@@ -320,7 +412,8 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     lambda_part_wall(2:2:num_of_coords)=lambda_part_wall(1:2:num_of_coords);
     %wall force
     %f_w=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
-    forces_one_time(:,3)=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
+    %forces_one_time(:,3)=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
+    forces_one_time(:,3)=not_at_goal_double.*(A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall);
     %}
 
     %f_g=zeros(1,2*num_of_ppl);
@@ -328,47 +421,59 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
     %it separately:
     %f_k=zeros(1,2*num_of_ppl);%body force
     f_soc=zeros(1,num_of_coords);%soc frce
-    
-    for p1=indices_tmp(not_at_goal)%1:num_of_ppl
-        x_p1=X(2*p1+[-1,0]);%coords of the used person
-        %b_p1=B(2*p1+[-1,0]);%coords of the used persons closes wall
-        %v_p1=V(2*p1+[-1,0]);
-        v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
-        %coords of all the other person, dim: 1 x 2*(num_of_ppl-1)
-        X_others=X(reshape(2*cat(2,1:p1-1,p1+1:num_of_ppl)+[-1,0]',1,2*(num_of_ppl-1)));
-        %vectors from all the other people pointing to the now checked person
-        X_ij=repmat(x_p1,1,(num_of_ppl-1))-X_others;
-        %d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
-        %norms of the above, doubled
-        d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
-        %normed vectors from all the other people pointing to the now checked person
-        n_ij=X_ij./d_ij_double;
-        %{
-        %wall force making:
-        d_ib=sqrt(sum((x_p1-b_p1).^2));
-        %normed vector from now checked person to its closest wall coords
-        %LATER PUT THIS OUTSIDE OF THE FOR CYCLE
-        n_ib=(x_p1-b_p1)/d_ib;
-        %angle dependency part (between the wall and the direction of the movement of the person)
-        angles_ib=sum(-n_ib.*(V(2*p1+[-1,0])./sqrt(sum((V(2*p1+[-1,0])).^2))));
-        lambda_part_wall=lambda_i+(1-lambda_i)*1/2*(1+angles_ib);
-        %wall force
-        f_wall_of_p1=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
-        %}
-        %soc force making:
-        %angle dependency part (between the person and others)
-        angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
-        lambda_part_soc=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
-        f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part_soc;
-        %f_w(2*p1+[-1,0])=f_wall_of_p1;
-        
-        %body forces
-        f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
-        %if we dont want to add the body forces to the soc model but work with
-        %it separately:
-        %f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
-        %soc force
-        f_soc(2*p1+[-1,0])=f_soc(2*p1+[-1,0])+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+    %not_at_goal
+    %if sum(not_at_goal)~=num_of_ppl
+    %    1
+    %end
+
+    %indices_tmp=1:num_of_ppl;
+    ppl_coords=reshape(1:num_of_ppl*2,2,num_of_ppl);
+    for p1=1:num_of_ppl%p1=indices_tmp(not_at_goal)%1:num_of_ppl
+        %indices_tmp
+        %indcs=2*p1+[-1,0];
+        if not_at_goal(p1)==0
+            f_soc(ppl_coords(:,p1))=[0,0];
+        else
+            x_p1=X(2*p1+[-1,0]);%coords of the used person
+            %b_p1=B(2*p1+[-1,0]);%coords of the used persons closes wall
+            %v_p1=V(2*p1+[-1,0]);
+            v_p1_normed_vect=repmat(V(2*p1+[-1,0])/norm(V(2*p1+[-1,0])),1,num_of_ppl-1);
+            %coords of all the other person, dim: 1 x 2*(num_of_ppl-1)
+            X_others=X(reshape(2*cat(2,1:p1-1,p1+1:num_of_ppl)+[-1,0]',1,2*(num_of_ppl-1)));
+            %vectors from all the other people pointing to the now checked person
+            X_ij=repmat(x_p1,1,(num_of_ppl-1))-X_others;
+            %d_ij=sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2);
+            %norms of the above, doubled
+            d_ij_double=reshape(repmat(sqrt(X_ij(1:2:end).^2+X_ij(2:2:end).^2),2,1),1,2*(num_of_ppl-1));
+            %normed vectors from all the other people pointing to the now checked person
+            n_ij=X_ij./d_ij_double;
+            %{
+            %wall force making:
+            d_ib=sqrt(sum((x_p1-b_p1).^2));
+            %normed vector from now checked person to its closest wall coords
+            %LATER PUT THIS OUTSIDE OF THE FOR CYCLE
+            n_ib=(x_p1-b_p1)/d_ib;
+            %angle dependency part (between the wall and the direction of the movement of the person)
+            angles_ib=sum(-n_ib.*(V(2*p1+[-1,0])./sqrt(sum((V(2*p1+[-1,0])).^2))));
+            lambda_part_wall=lambda_i+(1-lambda_i)*1/2*(1+angles_ib);
+            %wall force
+            f_wall_of_p1=A_i*exp((r_ij/2-d_ib)/B_i).*n_ib.*lambda_part_wall;
+            %}
+            %soc force making:
+            %angle dependency part (between the person and others)
+            angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
+            lambda_part_soc=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
+            f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part_soc;
+            %f_w(2*p1+[-1,0])=f_wall_of_p1;
+            
+            %body forces
+            f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
+            %if we dont want to add the body forces to the soc model but work with
+            %it separately:
+            %f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+            %soc force
+            f_soc(ppl_coords(:,p1))=f_soc(ppl_coords(:,p1))+[sum(f_ppl_of_p1(1:2:2*(num_of_ppl-1))),sum(f_ppl_of_p1(2:2:2*(num_of_ppl-1)))]+[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
+        end
     end
 
     forces_one_time(:,2)=f_soc;
@@ -486,7 +591,7 @@ function min_wall_coords=find_closest_disc_wall_coords(x,room)
         num_of_ppl=size(x,2)/2;
         vv=reshape(repmat(x,size(room.wall_coords,1),1)-repmat(room.wall_coords,1,num_of_ppl),size(room.wall_coords,1),2,[]);
         [~,min_lincoords]=min(squeeze(vecnorm(vv,2,2)));
-        min_wall_coords=room.wall_coords([min_lincoords],:)';
+        min_wall_coords=room.wall_coords(min_lincoords,:)';
 
         min_wall_coords=reshape(min_wall_coords,1,2*num_of_ppl);
 end
@@ -545,8 +650,8 @@ function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall,eikonal,wh
     %}
     %xlim([-10.5,10.5])
     %ylim([-10.5,10.5])
-    xlim([-1,11])
-    ylim([-1,11])
+    xlim([-1,room.max_room_val+1])
+    ylim([-1,room.max_room_val+1])
 
     %plot walls - if we would do w/out the for cycle i.e. with vectors,
     %there would between the ending a starting points (not just the
@@ -558,9 +663,9 @@ function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall,eikonal,wh
         end
     else 
         xline(0)
-        xline(10)
+        xline(room.max_room_val)
         yline(0)
-        yline(10)
+        yline(room.max_room_val)
     end
     %}
     %imagesc([room.wall_map]')
@@ -631,4 +736,17 @@ function create_plots(t,y,num_of_ppl)
         title(['v',num2str(ind)])
     end
 
+end
+
+function plot_dist_fncs(Dist_fncs,goals,res,mm)
+    figure;tiledlayout(1,size(Dist_fncs,2));
+    for ind1=1:size(Dist_fncs,2)
+        nexttile;imagesc(Dist_fncs{ind1});hold on; plot((1/res)*goals{ind1}(1,:),(1/res)*goals{ind1}(2,:),'k*','MarkerSize',15)
+        colorbar;
+        xticks(0:mm:1/res*mm)
+        xticklabels(num2cell(string(0:mm*res:mm)))
+        yticks(0:mm:1/res*mm)
+        yticklabels(num2cell(string(0:mm*res:mm)))
+        title(['Dist fnc ',num2str(ind1),', res= ',num2str(res)])
+    end
 end
