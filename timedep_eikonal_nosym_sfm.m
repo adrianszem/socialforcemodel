@@ -1,18 +1,28 @@
 clear all
+
+%add path to use the eikonal solve
 path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching');
 path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching/toolbox');
 
+%dicwall= 0/1: wall given by lines/descretely
+%         0 also needs one if we use the eikonal solver
+%eikonal= 0/1:
+
+
 disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
 %no bresenams algorithm
-eikonal=1;
+eikonal=0;
 
 
 
 if disc_wall==1
     %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
+
+    %room vals
     max_room_val=30;
     room.resolution=0.1;
-
+    
+    %make room
     room=make_dicrete_room_fnc(max_room_val,room.resolution);
     room.max_room_val=max_room_val;
     %room_d=room;
@@ -27,11 +37,16 @@ if disc_wall==1
     %}
 else %cont wall, should be same as the discrete for the eikonal
     %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
+
+    %room vals
     max_room_val=30;
     room.resolution=0.1;
-
+    
+    %make room
     room=make_dicrete_room_fnc(max_room_val,room.resolution);
     room.max_room_val=max_room_val;
+    
+    %make room vals by lines
     room.walls=[0,max_room_val,max_room_val,max_room_val;...%x_startp,y_startp,x_endp,y_endp
     max_room_val,max_room_val,max_room_val,0;...
     0,0,0,max_room_val;...
@@ -50,12 +65,13 @@ else %cont wall, should be same as the discrete for the eikonal
     %for the eikonal:
 end
 
-%
+%ppl init vals
 num_of_ppl=6;
 init_pos=randi([10,max_room_val*10-10],1,2*num_of_ppl)/10;%[randi([2,38],1,2*num_of_ppl)];%[1,0,1,0,randi([2,15],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
 init_vel=randi([0,10],1,2*(num_of_ppl));%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
 save_tf=0;
 
+%make sure that no two ppl have the same init pos
 for ind1=1:2:2*num_of_ppl 
     ppl_tmp=init_pos(ind1+[0,1]);
     if ~sum(init_vel(ind1+[0,1]))
@@ -68,6 +84,7 @@ for ind1=1:2:2*num_of_ppl
     end
 end
 
+%make sure that no two ppl have the same init pos
 for ind1=1:2:2*num_of_ppl 
     ppl_tmp=init_pos(ind1+[0,1]);
     for ind2=ind1+2:2*(num_of_ppl-1)
@@ -78,10 +95,12 @@ for ind1=1:2:2*num_of_ppl
 end
 
 
-
+%define goals
 if eikonal==0
+    %define goals for all person
     goals=[4,2,randi([1,9],1,2*(num_of_ppl-1))];%[1,1,1,1];%[-1,1,1,1];%randi([0,10],1,2*num_of_ppl);
 elseif eikonal==1
+    %define goals and add which person has which goal
     which_goal=randi([1,2],1,num_of_ppl);%ones(1,num_of_ppl);%[1,2,2,1,1,2];%,1,1,2];
     num_of_goals=max(which_goal);
     goals{1}=[20,7;...%2,10,38,38,27;...
@@ -91,6 +110,8 @@ elseif eikonal==1
     clear options;
     options.nb_iter_max = Inf;
     for ind1=1:num_of_goals
+        % perform fast marching for all goals
+        % here we have the values for all possible cells
         [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
     end
     %plot_dist_fncs(Dist_fncs,goals,room.resolution,max_room_val);
@@ -146,6 +167,7 @@ num_of_time_grid=length(t);
 %number of people
 %thus we need to make th RHS adaptable.
 
+%pedestrian parameters
 v_0=2;%wanted speed
 tau=1/2;%relaxation time [s]
 v_max=2*v_0;%maximal speed
@@ -160,6 +182,7 @@ k=100;
 kappa=100;
 
 tic
+%exp euler numerical method for all possible cases
 if disc_wall==1
     if eikonal==1
         [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
@@ -217,6 +240,7 @@ function [y,forces_k]=exp_euler_discrete_wall(N,h,init,ppl_goal,v_max,v_0,room,e
 
     y(1,:)=init;
     
+    %time-steping
     for j=1:N-1 %timesteps
         B=find_closest_disc_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
         forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal,room,Dist_fncs,which_goal);
@@ -233,8 +257,8 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,ppl_goal,v_max,v_0,room,eikon
     forces_k=zeros(N,length(init)/2,3);
     
     y(1,:)=init;
-       
-    for j=1:N-1
+    %time-steping   
+    for j=1:N-1 %timesteps
         B=find_closest_cont_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
         forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,eikonal,room,Dist_fncs,which_goal);
         %forces_k(j,:,:)=f1(j,:,:);
@@ -244,10 +268,11 @@ function [y,forces_k]=exp_euler_cont_wall(N,h,init,ppl_goal,v_max,v_0,room,eikon
 end
 
 function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,which_goal)
+    %pedestrian parameters
     v_0=2;%wanted speed
     tau=1/2;%relaxation time [s]
     v_max=2*v_0;%maximal speed
-    effective_angle_of_sight=pi/2;
+    %effective_angle_of_sight=pi/2;
     
     %parameters for the forces
     A_i=20;
