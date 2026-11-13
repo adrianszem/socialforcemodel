@@ -373,6 +373,8 @@ function loadData(src,event,editfld,fig,uiax)
         data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
     end
     guidata(src,data);
+    disp('data sucessfully loaded')
+
 end
 
 function loadMenuSelected(src,event,fig,uiax)
@@ -423,7 +425,7 @@ function loadMenuSelected(src,event,fig,uiax)
         data.ppl_graph_objects(end,5)=line(uiax,[data.person_coords(person_indices(1)),data.goal_coords(person_indices(1))],[data.person_coords(person_indices(2)),data.goal_coords(person_indices(2))],'Color','magenta','LineStyle','--','HitTest','off');
     end
     guidata(src,data);
-
+    disp('data sucessfully loaded')
     
 end
 
@@ -444,6 +446,7 @@ function saveData(src,event,editfld,fig)
         else 
             room_config_datas=rmfield(data,{'person_or_goal','walls','rect','rect_coords','rectangles','rect_point','wall_graph_objects','ppl_graph_objects','wall_tagger_ind','person_button_val','rect_button_val','wall_button_val','del_person','sim_graph_objects'});
             save(editfld.Value,'room_config_datas'); %we save the people independently
+            disp('data saved')
         end
     end
  end
@@ -469,6 +472,7 @@ end
 
 function delConfig(src,event,fig)
     data=guidata(src);
+    disp('configuration deleted')
     delete(data.wall_graph_objects);
     delete(data.ppl_graph_objects)
     delete(data.rectangles);
@@ -477,7 +481,6 @@ end
 
 function delSim(src,event,uiax,fig)
     data=guidata(src);
-    disp('ahaa')
     delete(data.sim_graph_objects);
     data.sim_graph_objects=[];
     %delsim is also called before runSim (and in del all), but we only want to plot (again) the init
@@ -501,6 +504,7 @@ end
 function delAll(src,event,fig)
     delSim(src,event);
     delConfig(src,event,fig);
+    disp('all deleted')
 end
 
 function handle_init(fig)
