@@ -1,0 +1,87 @@
+socforce_make_room_gui
+
+calls nosym_social_force_model_gui, which uses exp_euler_cont_wall,
+which doesnt have the eikonal implemented, likely because 
+
+
+dont know if turn off if close to goal is in this
+
+
+__
+
+timedep_eikonal_nosym_fnc
+
+this has the old path!! but same change time + git
+
+disc_wall==0 :wall is given by lines
+	make_dicrete_room_fnc
+	Q.: why do we have discrete too? because of the eikonal eqn??
+
+disc_wall==1 :wall given as a mask of the discretized space
+	%load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
+	make_discrete_room_fnc.m (sam as make_discrete_room.m, just as a function with 	variable maxval and resolution)
+
+forces_k in exp_euler_discrete_wall and cont_wall are pretty big matrices, because we save them for all timesteps,ppl,forces !
+
+cutoff_fnc
+
+
+more_than_one=1 more than one goals !
+
+    kartz_s=1;
+g=1;
+    h=1
+
+forces_at_goal=0;
+    goal_dist_cutoff_val=0.5;
+
+kartz_s==0 % equiv 1
+	compute_geodesic_modified_less_2_nosavegrad
+
+kartz_s==1 % where a person is, the eikonal eqn inherits the speed (doesnt look out for different goals
+
+kartz_s==2 % where a person is, the eikonal eqn inherits the speed (doesnt look out for different goals
+
+kartz_s==3 % what is in the paper from kartz (looks out for different goals
+
+
+_______________________________
+nosy_social_force_model_debuged_parfor
+
+
+disc_wall==0 :wall is given by lines
+	make_dicrete_room_fnc
+	Q.: why do we have discrete too? because of the eikonal eqn??
+
+disc_wall==1 :wall given as a mask of the discretized space
+	%load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
+	make_discrete_room_fnc.m (sam as make_discrete_room.m, just as a function with 	variable maxval and resolution)
+
+num_of_ppl=60;
+init_pos=
+init_vel=
+
+eikonal==0
+	goals= vals
+eikoanl ==1
+	which_goal=
+    	num_of_goals=max(which_goal);
+    	goals{1}=[20,7;...%2,10,38,38,27;...goals{2}=[9;...
+	for ind1=1:num_of_goals
+        		[Dist_fncs{ind1},~] = 		perform_fast_marching(double(~room.wall_map)	(1/		room.resolution)* goals{ind1}, options);
+   	 end
+    - [ ] check perform fast marching
+	plot_dist_fncs for ploting:
+FORCES
+	exp_euler_discrete_wall / exp_euler_cont_wall (different number of inputs, 		depending on eikonal==0/1
+	IN EXP_EULER_DISCRETE_WALL
+		find_closest_disc_wall_coords,  forceparts_calc
+			cutoff_fnc called here
+	IN EXP_EULER_CONT_WALL
+		find_closest_cont_wall_coords, forceparts_calc
+			cutoff_fnc called here
+	FORCEPARTS_CALC
+		forces_at_goal=0;
+    		goal_dist_cutoff_val=0.5;
+	TBH, HERE I DONT THINK WE USE THE EIKONAL EQN
+HERE, THE IMPLEMENTATION OF DIFFERENT SFM MODELS W/ EIKONAL ARE NOT DEFINED...
