@@ -61,6 +61,7 @@ end
         maxverts = 10000;
     end
     %}
+
     
     if size(x,1)~=2
         error('end_points should be of size 2xk');

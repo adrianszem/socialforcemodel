@@ -1,15 +1,18 @@
 clear all
 clc
-path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching');
-path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching/toolbox');
 
-disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
+%path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching');
+%path(path,'C:/Users/User/Documents/tan/elte_alkmat_msc/socialForce/toolbox_fast_marching/toolbox');
+path(path,'/Users/adrianlaszloszemenyei/Documents/MATLAB/FEMforSFM/sfm/toolbox_fast_marching');
+path(path,'/Users/adrianlaszloszemenyei/Documents/MATLAB/FEMforSFM/sfm/toolbox_fast_marching/toolbox');
+
+disc_wall=1;%0:wall is given by lines, 1: wall given as a mask of the discretized space
 %no bresenams algorithm
 eikonal=1;
 
 
 
-if disc_wall==1
+if disc_wall==0
     %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
     max_room_val=30;
     room.resolution=0.1;
