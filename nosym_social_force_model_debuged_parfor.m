@@ -54,8 +54,8 @@ else %cont wall, should be same as the discrete for the eikonal
     %for the eikonal:
 end
 
-%
-num_of_ppl=60;
+%{
+num_of_ppl=20;
 init_pos=randi([10,max_room_val*10-10],1,2*num_of_ppl)/10;%[randi([2,38],1,2*num_of_ppl)];%[1,0,1,0,randi([2,15],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
 init_vel=randi([0,10],1,2*(num_of_ppl));%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
 save_tf=2;
@@ -100,7 +100,7 @@ end
 
 %}
 
-%{
+%
 load('test_ppl_159048_socforcmodel_eik.mat')
 %disc_wall=0;
 num_of_ppl=onerun.num_of_ppl;
@@ -121,7 +121,7 @@ save_tf=0;
 
 
 %{
-load('test_ppl_362206_socforcmodel.mat')
+load('test_ppl_362roo206_socforcmodel.mat')
 disc_wall=0;
 num_of_ppl=onerun.num_of_ppl;
 
