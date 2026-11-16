@@ -6,13 +6,13 @@ clc
 path(path,'/Users/adrianlaszloszemenyei/Documents/MATLAB/FEMforSFM/sfm/toolbox_fast_marching');
 path(path,'/Users/adrianlaszloszemenyei/Documents/MATLAB/FEMforSFM/sfm/toolbox_fast_marching/toolbox');
 
-disc_wall=1;%0:wall is given by lines, 1: wall given as a mask of the discretized space
+disc_wall=0;%0:wall is given by lines, 1: wall given as a mask of the discretized space
 %no bresenams algorithm
 eikonal=1;
 
 
 
-if disc_wall==0
+if disc_wall==1
     %load('room_for_soc_forc_mod_0_10.mat')%room, see make_discrete_room.m
     max_room_val=30;
     room.resolution=0.1;
@@ -54,7 +54,7 @@ else %cont wall, should be same as the discrete for the eikonal
     %for the eikonal:
 end
 
-%{
+%
 num_of_ppl=60;
 init_pos=randi([10,max_room_val*10-10],1,2*num_of_ppl)/10;%[randi([2,38],1,2*num_of_ppl)];%[1,0,1,0,randi([2,15],1,2*(num_of_ppl-2))];%[-1.4,1,-1,1];%[1,1,-1,1];%[2,2,randi([-10,10],1,2*(num_of_ppl-1))];
 init_vel=randi([0,10],1,2*(num_of_ppl));%[1,0,1,0];%[-1,0.001,1,0];%[-1,-1,randi([0,10],1,2*(num_of_ppl-1))];
@@ -100,9 +100,9 @@ end
 
 %}
 
-%
+%{
 load('test_ppl_159048_socforcmodel_eik.mat')
-disc_wall=0;
+%disc_wall=0;
 num_of_ppl=onerun.num_of_ppl;
 
 init_pos=onerun.init_pos;
@@ -160,6 +160,7 @@ kappa=100;
 
 tic
 if disc_wall==1
+    disp('iff')
     if eikonal==1
         [y,forces]=exp_euler_discrete_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
         simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
@@ -168,6 +169,7 @@ if disc_wall==1
         simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal)
     end
 else
+    disp('elsee')
     if eikonal==1
         [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],goals,v_max,v_0,room,eikonal,Dist_fncs,which_goal);
         simple_plot(y,forces,goals,num_of_ppl,r_ij,room,disc_wall,eikonal,which_goal)
