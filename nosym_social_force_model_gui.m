@@ -338,12 +338,17 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
             angles_ij=reshape(repmat(sum(reshape(-n_ij.*v_p1_normed_vect,2,[])),2,1),1,2*(num_of_ppl-1));
             lambda_part_soc=lambda_i+(1-lambda_i)*1/2*(1+angles_ij);
             f_ppl_of_p1=A_i*exp((r_ij-d_ij_double)/B_i).*n_ij.*lambda_part_soc;
-            f_ppl_of_p1(~not_at_goal_double)=0;
+            %f_ppl_of_p1(~not_at_goal_double)=0;
             %f_w(2*p1+[-1,0])=f_wall_of_p1;
             
             %body forces
             f_k_part=k*max(0,r_ij-d_ij_double).*n_ij;
-            f_k_part(~not_at_goal_double)=0;
+            %f_k_part(~not_at_goal_double)=0;
+
+            mask_o = not_at_goal_double([1:2*p1-2, 2*p1+1:2*num_of_ppl]);   % 2(N-1) entries, without p1
+            f_ppl_of_p1(~mask_o) = 0;
+            f_k_part(~mask_o)    = 0;
+
             %if we dont want to add the body forces to the soc model but work with
             %it separately:
             %f_k(2*p1+[-1,0])=[sum(f_k_part(1:2:2*(num_of_ppl-1))),sum(f_k_part(2:2:2*(num_of_ppl-1)))];
