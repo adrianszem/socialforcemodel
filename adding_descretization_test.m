@@ -30,7 +30,7 @@ else %cont wall, should be same as the discrete for the eikonal
     0,0,0,max_room_val;...
     max_room_val,0,0,0];
     %}
-    %
+    %{
    room.walls = [ 0,  0, 30,  0;...      % bottom
               30,  0, 30,  4;...      % right, lower part
               30,  5, 30, 30;...      % right, upper part  (exit gap y in [4,5])
@@ -38,6 +38,14 @@ else %cont wall, should be same as the discrete for the eikonal
                0,  0,  0, 30;...      % left
                5,  0,  5,  2.5;...    % inner wall, lower  (door y in [2.5,3.5])
                5,  3.5, 5, 30];       % inner wall, upper
+    %}
+    room.walls = [ 0,  0, 30,  0;...     % bottom
+              30,  0, 30,  4;...     % right end, lower part
+              30,  5, 30, 12;...     % right end, upper part   (exit gap y in [4,5])
+              12, 12, 30, 12;...     % inner corner, horizontal
+              12, 12, 12, 30;...     % inner corner, vertical
+               0, 30, 12, 30;...     % top
+               0,  0,  0, 30];       % left
     room.xlim = [min(min(room.walls(:,[1,3]))), max(max(room.walls(:,[1,3])))];
     room.ylim = [min(min(room.walls(:,[2,4]))), max(max(room.walls(:,[2,4])))];
     [room.wall_map, X, Y] = walls2grid(room.walls, room.xlim, room.ylim, room.resolution);
@@ -59,6 +67,12 @@ end
 load('test_ppl_430002_socforcmodel_eik.mat')
 %disc_wall=0;
 num_of_ppl=onerun.num_of_ppl;
+onerun.goals{2}=[3;25];
+
+onerun.which_goal=2*ones(1,num_of_ppl);
+onerun.init_pos(1:2:40)=20*rand(1,20);
+onerun.init_pos(2:2:40)=10*rand(1,20);
+
 
 init_pos=onerun.init_pos;
 init_vel=onerun.init_vel;
@@ -70,6 +84,7 @@ room.x = room.xlim(1):room.resolution:room.xlim(2);
 room.y = room.ylim(1):room.resolution:room.ylim(2);
 %plot(x(goals_disc(1,:)), y(goals_disc(2,:))
 
+%{
 for indx=1:num_of_goals
     target=onerun.goals{indx};
     disc_target_j = round((target(1,:) - room.xlim(1))/room.resolution) + 1;
@@ -79,7 +94,7 @@ for indx=1:num_of_goals
     goals_disc = unique(goals_disc.', 'rows', 'stable').';
     onerun.goals{indx}=[room.x(goals_disc(1,:)); room.y(goals_disc(2,:))];
 end
-
+%}
 goals=onerun.goals;
 
 clear options;
@@ -313,7 +328,7 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
                 %end
             end
         end
-        f_dir=sum(f_dir);
+        f_dir=sum(f_dir,1);
         %}
 
         %{

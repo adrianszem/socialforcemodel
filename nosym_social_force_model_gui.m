@@ -1,4 +1,7 @@
 function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,uiax,newfigure_logical,run_as_movie_logical)
+    
+    eikonal=1;
+
     init_pos=room_config_datas.person_coords;
     ppl_goal=room_config_datas.goal_coords;
     init_vel=room_config_datas.vel_coords;
@@ -14,7 +17,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
     room.lengths=vecnorm(room.u_s,2,2);
     
     t_0=0;
-    t_max=20;
+    t_max=40;
     step_size=1/200;
     t=t_0:step_size:t_max;
     num_of_time_grid=length(t);
@@ -39,7 +42,52 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
     k=100;
     kappa=100;
 
-    [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,uiax);
+    if eikonal==1
+        disp('disc room')
+        %discretization of the room:
+        room.resolution=0.1;
+        room.xlim = [min(min(room.walls(:,[1,3]))), max(max(room.walls(:,[1,3])))];
+        room.ylim = [min(min(room.walls(:,[2,4]))), max(max(room.walls(:,[2,4])))];
+        [room.wall_map, X, Y] = walls2grid(room.walls, room.xlim, room.ylim, room.resolution);
+        
+        %get goals for eikonal
+        goals_of_ppl=unique(reshape(ppl_goal,2,[]));
+        goals_of_ppl
+        %goals_of_ppl = unique(reshape(ppl_goal,2,[]).', 'rows', 'stable').';   % 2-by-k, one column per goal point
+        %goals_of_ppl(1:1:2)=goals_of_ppl(2:-1:1)
+        num_of_goals=1;
+        
+        %{
+        for indx=1:num_of_goals
+            target=goals_of_ppl;%onerun.goals{indx};
+            disc_target_j = round((target(1,:) - room.xlim(1))/room.resolution) + 1;
+            disc_target_i = round((target(2,:) - room.ylim(1))/room.resolution) + 1;
+           
+            goals_disc = [disc_target_j; disc_target_i];
+            goals_disc = unique(goals_disc.', 'rows', 'stable').';
+            goals_of_ppl=[room.x(goals_disc(1,:)); room.y(goals_disc(2,:))];%onerun.goals{indx}=[room.x(goals_disc(1,:)); room.y(goals_disc(2,:))];
+        end
+        %}
+        %eikonal
+    
+        clear options;
+        options.nb_iter_max = Inf;
+        for ind1=1:num_of_goals
+            g = goals_of_ppl;                                   % [x; y] in metres
+            start_pts = round([ (g(2,:) - room.ylim(1))/room.resolution + 1 ;    % row    <- y
+                                (g(1,:) - room.xlim(1))/room.resolution + 1 ]);  % column <- x
+            start_pts*room.resolution
+            [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), start_pts, options);
+            %[room.G1{ind1}, room.G2{ind1}] = precompute_direction(Dist_fncs{ind1}, room.resolution);
+            %[Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
+        end
+    end
+    if eikonal==1
+        [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,uiax,Dist_fncs);
+    else
+        [y,forces]=exp_euler_cont_wall(num_of_time_grid,step_size,[init_pos,init_vel],ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,uiax);
+    end
+
     
     %in the case, when we run a movie, after its done, we still want to see it:
     sim_graph_objects=simple_plot(y,step_size,forces,ppl_goal,num_of_ppl,r_ij,room,uiax,newfigure_logical);
@@ -47,10 +95,12 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
     %movie_plot(y,t,num_of_ppl)
 
     %create_plots(t,y,num_of_ppl)
+        
     
     disp('simulation ended')
     
-    function [y,forces_k]=exp_euler_cont_wall(N,h,init,ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,ax)
+    function [y,forces_k]=exp_euler_cont_wall(N,h,init,ppl_goal,v_max,v_0,room,run_as_movie_logical,fig,ax,varargin)
+        
         if run_as_movie_logical==0
             d2 = uiprogressdlg(fig,'Title','Please Wait','Message','Simulating');
         elseif run_as_movie_logical==1
@@ -69,7 +119,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         for j=1:N-1
             B=find_closest_cont_wall_coords(y(j,1:2*num_of_ppl),room);%closest wall coordinates
             
-            forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B);
+            forces_k(j,:,:)=h*forceparts_calc(y(j,1:2*num_of_ppl),ppl_goal,y(j,2*num_of_ppl+1:end),B,varargin);
             %forces_k(j,:,:)=f1(j,:,:);
             y(j+1,:)=y(j,:)+[h*cutoff_fnc(y(j,2*num_of_ppl+1:end),v_max,v_0),sum(forces_k(j,:,:),3)];%id fnc in cutoff
 
@@ -92,7 +142,10 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         end
     end
     
-    function forces_one_time=forceparts_calc(X,ppl_goal,V,B)
+    function forces_one_time=forceparts_calc(X,ppl_goal,V,B,varargin)
+
+        varargin=varargin{1};
+
         v_0=2;%wanted speed
         tau=1/2;%relaxation time [s]
         v_max=2*v_0;%maximal speed
@@ -105,7 +158,33 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         r_ij=0.5;
         k=100;
         kappa=100;
+
+        %case of more than one goal (needs more change of how we save goals
+        %{
+        more_than_one=0;%there can be more than one goal in 'goals'
     
+        X_tmp=zeros(1,num_of_ppl);
+    
+        if isempty(varargin)==0
+            res=room.resolution;
+            if more_than_one==0
+                ppl_goal=reshape(cell2mat(goals(which_goal)),1,num_of_coords);
+                X_tmp=sqrt((X(1:2:num_of_coords)-ppl_goal(1:2:num_of_coords)).^2+(X(2:2:num_of_coords)-ppl_goal(2:2:num_of_coords)).^2);
+            else
+                for ind1=1:num_of_ppl
+                    %goals{which_goal}
+                    %find the closest goal (can change dynamically), only
+                    %to use it whether the person is close enought to the goal
+                    X_tmp(ind1)=min(sqrt(sum((X(2*ind1-1:2*ind1)'-goals{which_goal(ind1)}).^2)));
+                    %X_tmp(ind1)=minval_X;
+                    %X
+                end
+            end
+        else
+            ppl_goal=goals;
+            X_tmp=sqrt((X(1:2:num_of_coords)-ppl_goal(1:2:num_of_coords)).^2+(X(2:2:num_of_coords)-ppl_goal(2:2:num_of_coords)).^2);
+        end
+        %}
         num_of_coords=size(X,2);
         forces_one_time=zeros(num_of_coords,3);
     
@@ -122,20 +201,89 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
 
         if forces_at_goal==1
             not_at_goal=true(size(X_tmp));
-            not_at_goal_double=true(1,2*num_of_ppl);
+            not_at_goal_double=true(1,num_of_coords);
         else
             not_at_goal=X_tmp>goal_dist_cutoff_val;
-            not_at_goal_double=true(1,2*num_of_ppl);
-            not_at_goal_double(1:2:2*num_of_ppl)=not_at_goal;
-            not_at_goal_double(2:2:2*num_of_ppl)=not_at_goal;
+            not_at_goal_double=true(1,num_of_coords);
+            not_at_goal_double(1:2:num_of_coords)=not_at_goal;
+            not_at_goal_double(2:2:num_of_coords)=not_at_goal;
         end
+
+        %bitdif!
+        % X_norm=zeros(1,num_of_coords);
+        %X_norm(1:2:num_of_coords)=X_tmp;
+        %X_norm(2:2:num_of_coords)=X_tmp;
         
+        
+        %V_norm=zeros(1,num_of_coords);
+        %V_norm(1:2:num_of_coords)=sqrt(V(1:2:num_of_coords).^2+V(2:2:num_of_coords).^2);
+        %V_norm(2:2:num_of_coords)=V_norm(1:2:num_of_coords);
+    
+        %forces_at_goal=0;
+        %goal_dist_cutoff_val=0.5;
+    
+        %if forces_at_goal==1
+        %    not_at_goal=true(size(X_tmp));
+        %    not_at_goal_double=true(1,num_of_coords);
+        %else
+        %    not_at_goal=X_tmp>goal_dist_cutoff_val;
+        %    not_at_goal_double=true(1,num_of_coords);
+        %    not_at_goal_double(1:2:num_of_coords)=not_at_goal;
+        %    not_at_goal_double(2:2:num_of_coords)=not_at_goal;
+        %end
 
         num_of_ppl=num_of_coords/2;
         indices_tmp=1:num_of_ppl;
+        
         f_dir=zeros(1,num_of_coords);
-        f_dir(not_at_goal_double)=1/tau*((ppl_goal(not_at_goal_double)-X(not_at_goal_double))./X_norm(not_at_goal_double)*v_0-V(not_at_goal_double));%dir force
+
+        if isempty(varargin)==0
+            Dist_fncs=varargin{1};
+            %now with only one goal
+            which_goal=ones(1,num_of_ppl);
+            res=room.resolution;
+            f_dir=zeros(max(which_goal),num_of_coords);
+            ppl_mask=false(max(which_goal),num_of_coords);
+            ppl_mask(:,1:2:num_of_coords)= repmat(not_at_goal,[max(which_goal),1]) & which_goal==(1:max(which_goal))';
+            ppl_mask(:,2:2:end)=ppl_mask(:,1:2:num_of_coords);
+            sum_ppl_mask=sum(ppl_mask,2);
+            for ind1=1:max(which_goal)
+                if sum_ppl_mask(ind1)
+                 
+                    P = reshape(X(ppl_mask(ind1,:)), 2, []);           % [x; y] in metres, one column per person
+    
+                    x_idx = [ (P(2,:) - room.ylim(1))/res + 1 ;...        % row index    <- y
+                            (P(1,:) - room.xlim(1))/res + 1 ];       % column index <- x
+                    [n1, n2] = size(Dist_fncs{ind1});
+                    bad = x_idx(1,:) < 2 | x_idx(1,:) >= n1-1 | x_idx(2,:) < 2 | x_idx(2,:) >= n2-1;
+                    if any(bad)
+                        disp('positions in metres [x; y]:'), disp(P(:,bad))
+                        disp('indices [row; col]:'),         disp(x_idx(:,bad))
+                        disp('grid size:'),                  disp([n1 n2])
+                        keyboard   % stops here; type dbcont to continue, dbquit to stop
+                    end
+                    ip = compute_geodesic_modified_less_2_nosavegrad(Dist_fncs{ind1}, x_idx, res);
+                    ip=flipud(ip);
+                    ip=ip./vecnorm(ip);
+      
+                    f_dir_tmp=zeros(1,num_of_coords);
+                    f_dir_tmp(ppl_mask(ind1,:))=1/tau*(reshape(ip,1,sum_ppl_mask(ind1))*v_0-V(ppl_mask(ind1,:)));
+                    f_dir(ind1,:)=f_dir_tmp;%dir force
+          
+                end
+            end
+            f_dir=sum(f_dir,1);
+
+        else
+            f_dir(not_at_goal_double)=1/tau*((ppl_goal(not_at_goal_double)-X(not_at_goal_double))./X_norm(not_at_goal_double)*v_0-V(not_at_goal_double));%dir force
+        end
+
         forces_one_time(:,1)=f_dir;%dir force
+        %%
+
+        %f_dir=zeros(1,num_of_coords);
+        %f_dir(not_at_goal_double)=1/tau*((ppl_goal(not_at_goal_double)-X(not_at_goal_double))./X_norm(not_at_goal_double)*v_0-V(not_at_goal_double));%dir force
+        %forces_one_time(:,1)=f_dir;%dir force
     
         %wall force making:
         d_ib=zeros(1,num_of_coords);

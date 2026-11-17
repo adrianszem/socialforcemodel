@@ -370,7 +370,7 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
         end
         %not_at_goal
         %X
-        f_dir=sum(f_dir);
+        f_dir=sum(f_dir,1);
 
         %{
         for ind1=1:max(which_goal)

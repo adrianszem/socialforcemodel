@@ -86,8 +86,8 @@ btn_delete_person.Layout.Column=1;
 btn_run.Layout.Row=5;
 btn_run.Layout.Column=1;
 
-xlim(uiax,[-10,10])
-ylim(uiax,[-10,10])
+xlim(uiax,[-20,20])
+ylim(uiax,[-20,20])
 hold(uiax,'on');
 grid(uiax,'minor')
 

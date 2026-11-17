@@ -369,7 +369,7 @@ function forces_one_time=forceparts_calc(X,goals,V,B,eikonal,room,Dist_fncs,whic
                 %end
             end
         end
-        f_dir=sum(f_dir);
+        f_dir=sum(f_dir,1);
         %}
 
         %{

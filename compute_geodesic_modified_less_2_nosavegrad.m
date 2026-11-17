@@ -66,7 +66,7 @@ end
     if size(x,1)~=2
         error('end_points should be of size 2xk');
     end
-    disp('ooo')
+    %disp('ooo')
     % gradient computation
     %I = find(A==Inf);%walls
     %________________________________________
@@ -98,8 +98,6 @@ end
                 %ha nem peremen
                 %grad(val_tmp(1),val_tmp(2),1)=-(A(val_tmp(1)+1,val_tmp(2))-A(val_tmp(1)-1,val_tmp(2)))/(2*h);
                 %grad(val_tmp(1),val_tmp(2),2)=-(A(val_tmp(1),val_tmp(2)+1)-A(val_tmp(1),val_tmp(2)-1))/(2*h);
-                val_tmp
-                size(A)
                 tmp_x=-(A(val_tmp(1)+1,val_tmp(2))-A(val_tmp(1)-1,val_tmp(2)))/(2*h);
                 tmp_y=-(A(val_tmp(1),val_tmp(2)+1)-A(val_tmp(1),val_tmp(2)-1))/(2*h);
                 %grad_logical(val_tmp(1),val_tmp(2))=true;
