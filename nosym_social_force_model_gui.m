@@ -52,7 +52,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
         
         %get goals for eikonal
         goals_of_ppl=unique(reshape(ppl_goal,2,[]));
-        goals_of_ppl
+        
         %goals_of_ppl = unique(reshape(ppl_goal,2,[]).', 'rows', 'stable').';   % 2-by-k, one column per goal point
         %goals_of_ppl(1:1:2)=goals_of_ppl(2:-1:1)
         num_of_goals=1;
@@ -76,7 +76,7 @@ function sim_graph_objects=nosym_social_force_model_gui(room_config_datas,fig,ui
             g = goals_of_ppl;                                   % [x; y] in metres
             start_pts = round([ (g(2,:) - room.ylim(1))/room.resolution + 1 ;    % row    <- y
                                 (g(1,:) - room.xlim(1))/room.resolution + 1 ]);  % column <- x
-            start_pts*room.resolution
+           
             [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), start_pts, options);
             %[room.G1{ind1}, room.G2{ind1}] = precompute_direction(Dist_fncs{ind1}, room.resolution);
             %[Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);

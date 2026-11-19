@@ -23,7 +23,7 @@ else %cont wall, should be same as the discrete for the eikonal
     room.resolution=0.1;
 
     %room=make_dicrete_room_fnc(max_room_val,room.resolution);
-    room.max_room_val=max_room_val;
+    %room.max_room_val=max_room_val;
     %{
     room.walls=[0,max_room_val,max_room_val,max_room_val;...%x_startp,y_startp,x_endp,y_endp
     max_room_val,max_room_val,max_room_val,0;...
@@ -48,8 +48,8 @@ else %cont wall, should be same as the discrete for the eikonal
                0,  0,  0, 30];       % left
     room.xlim = [min(min(room.walls(:,[1,3]))), max(max(room.walls(:,[1,3])))];
     room.ylim = [min(min(room.walls(:,[2,4]))), max(max(room.walls(:,[2,4])))];
-    [room.wall_map, X, Y] = walls2grid(room.walls, room.xlim, room.ylim, room.resolution);
-    figure;imagesc(X(1,:), Y(:,1), room.wall_map); colormap(gray);
+    [room.wall_map, X, Y] = walls2grid(room.walls, room.xlim, room.ylim, room.resolution,0,1);
+    %figure;imagesc(X(1,:), Y(:,1), room.wall_map); colormap(gray);
 
     room.walls_init=room.walls(:,1:2);
     room.walls_end=room.walls(:,3:4);
@@ -103,6 +103,7 @@ for ind1=1:num_of_goals
     g = goals{ind1};                                   % [x; y] in metres
     start_pts = round([ (g(2,:) - room.ylim(1))/room.resolution + 1 ;    % row    <- y
                         (g(1,:) - room.xlim(1))/room.resolution + 1 ]);  % column <- x
+    
     [Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), start_pts, options);
     %[room.G1{ind1}, room.G2{ind1}] = precompute_direction(Dist_fncs{ind1}, room.resolution);
     %[Dist_fncs{ind1},~] = perform_fast_marching(double(~room.wall_map), (1/room.resolution)* goals{ind1}, options);
@@ -627,9 +628,9 @@ function simple_plot(y,forces,ppl_goal,num_of_ppl,r_ij,room,disc_wall,eikonal,wh
         end
     else 
         xline(0)
-        xline(room.max_room_val)
+        xline(room.xlim(2))
         yline(0)
-        yline(room.max_room_val)
+        yline(room.ylim(2))
     end
     %}
     %imagesc([room.wall_map]')
